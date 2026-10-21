@@ -416,6 +416,11 @@ function inkBar() {
     <button class="inkbtn on" onclick="inkToggle()">완료</button></div>`;
 }
 function inkToggle() { INK.on = !INK.on; INK.er = false; render(); }
+// 애플펜슬 몸통 두 번 탭(앱이 호출): 문제 풀이·모의고사 화면에서만 필기 켜기/끄기
+window.onPencilTap = () => {
+  if ((view !== 'quiz' && view !== 'mockrun') || document.getElementById('sheet')) return;
+  INK.pen = true; inkToggle(); toast(INK.on ? '필기 켜짐' : '필기 꺼짐');
+};
 function inkBarRefresh() { const b = document.querySelector('.inkbar'); if (b) b.outerHTML = inkBar(); }
 function inkClear() { const w = $('#inkw'); if (!w) return; INK.s[w.dataset.q] = []; inkDraw(); }
 function inkKey() { const w = $('#inkw'); return w ? w.dataset.q : null; }
