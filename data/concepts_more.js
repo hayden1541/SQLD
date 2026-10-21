@@ -139,7 +139,7 @@ c06: [
   { h: "관계를 정의할 때 확인할 4가지" },
   { li: ["두 엔터티 사이에 관심 있는 연관 규칙이 있는가", "두 엔터티 사이에 정보의 조합이 발생하는가", "업무기술서·장표에 관계 연결 규칙이 서술돼 있는가", "관계를 이어 주는 동사가 있는가"] },
   { h: "관계 읽는 법" },
-  { p: "기준 엔터티 '각각의' → 상대 엔터티 → 선택사양(항상/때때로) → 차수(하나/여러) → 관계명 순으로 읽습니다. 예: '각각의 부서에는 여러 사원이 때때로 소속된다', '각 사원은 하나의 부서에 항상 소속된다'." }
+  { p: "기준 엔터티 '각각의' → 상대 엔터티의 개수(하나/여러, 관계차수) → 선택사양(항상/때때로) → 관계명 순으로 읽습니다. 예: '각각의 부서에는 여러 사원이 때때로 소속된다', '각 사원은 하나의 부서에 항상 소속된다'." }
 ],
 
 c07: [
@@ -534,7 +534,7 @@ s10: [
       ["10", "3", "0", "NULL", "NULL", "0"], ["20", "5", "0", "NULL", "NULL", "0"], ["30", "6", "4", "2200", "550", "366.67"]] },
     chk: "SELECT DEPTNO, COUNT(*), COUNT(COMM), SUM(COMM), AVG(COMM), ROUND(AVG(COALESCE(COMM,0)),2) FROM EMP GROUP BY DEPTNO ORDER BY 1" },
   { li: [
-    "**COUNT(*)**는 행 수를 셉니다. NULL인 행도 셈",
+    "`COUNT(*)`는 행 수를 셉니다. NULL인 행도 셈",
     "**COUNT(컬럼)**은 그 컬럼이 NULL이 아닌 행만 셈. 30번 부서는 6명 중 COMM 값이 있는 4명(TURNER의 0 포함)",
     "**AVG(COMM)** = 2200 / 4 = 550. NULL 행은 **분모에서도 빠짐**",
     "**AVG(NVL(COMM,0))** = 2200 / 6 ≈ 366.67. NULL을 0으로 바꾸면 분모가 6이 됨",
@@ -857,7 +857,7 @@ s27: [
   { h: "FIRST_VALUE와 LAST_VALUE의 함정" },
   { t: { cols: ["10번 (SAL DESC)", "FIRST_VALUE", "LAST_VALUE (기본 범위)", "LAST_VALUE (끝까지)"], rows: [
     ["KING 5000", "KING", "KING", "MILLER"], ["CLARK 2450", "KING", "CLARK", "MILLER"], ["MILLER 1300", "KING", "MILLER", "MILLER"]] } },
-  { p: "ORDER BY가 있으면 기본 범위가 '처음 ~ 현재 행'이라서 LAST_VALUE는 늘 자기 자신이 됩니다. 그룹의 진짜 마지막 값을 보려면 `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`을 붙여야 합니다." }
+  { p: "ORDER BY가 있으면 기본 범위가 '처음 ~ 현재 행'이라서 LAST_VALUE는 자기 자신(동점이 있으면 동점 중 마지막 행)이 됩니다. 그룹의 진짜 마지막 값을 보려면 `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`을 붙여야 합니다." }
 ],
 
 s28: [
@@ -1144,10 +1144,10 @@ c14: [
   { h: "동시성 제어와 잠금" },
   { li: [
     "**공유 잠금(Shared Lock)**: 읽을 때. 다른 트랜잭션도 같이 읽을 수 있지만 수정은 못 함",
-    "**배타 잠금(Exclusive Lock)**: 수정할 때. 다른 트랜잭션은 그 행을 수정할 수 없음",
+    "**배타 잠금(Exclusive Lock)**: 수정할 때. 해제될 때까지 다른 트랜잭션은 그 행을 수정할 수 없고 공유 잠금을 걸어 읽을 수도 없음 (Oracle은 잠금 없이 이전 값을 읽게 해 줌)",
     "**교착 상태(Deadlock)**: A는 B가 잡은 행을, B는 A가 잡은 행을 서로 기다려 둘 다 멈춤. DBMS가 한쪽을 롤백시켜 풀어 줌",
     "**갱신 손실(Lost Update)**: 두 트랜잭션이 같은 값을 읽고 각자 고쳐 저장해서 먼저 저장한 변경이 사라짐"] },
-  { p: "Oracle은 읽기와 쓰기가 서로를 막지 않습니다. 다른 트랜잭션이 수정 중인 행을 읽으면 커밋 전 값(이전 이미지)을 보여 줘서, Read Committed에서 Dirty Read가 생기지 않습니다." }
+  { p: "Oracle은 읽기와 쓰기가 서로를 막지 않습니다. 다른 트랜잭션이 수정 중인 행을 읽으면 변경 전에 마지막으로 커밋된 값(Undo의 이전 이미지)을 보여 줘서, Read Committed에서 Dirty Read가 생기지 않습니다." }
 ],
 
 c15: [
@@ -1244,7 +1244,7 @@ s07: [
     out: { cols: ["D10", "D20", "고액"], rows: [["8750", "10875", "6"]] },
     chk: "SELECT SUM(CASE WHEN DEPTNO=10 THEN SAL END), SUM(CASE WHEN DEPTNO=20 THEN SAL ELSE 0 END), COUNT(CASE WHEN SAL>=2000 THEN 1 END) FROM EMP" },
   { li: [
-    "ELSE 없이 맞지 않는 행은 NULL → SUM·COUNT에서 빠지므로 ELSE 0과 결과가 같음 (단 COUNT는 ELSE 0이면 0도 세서 달라짐)",
+    "ELSE 없이 맞지 않는 행은 NULL → 집계에서 빠짐. SUM은 ELSE 0과 보통 같지만 맞는 행이 하나도 없으면 ELSE 생략은 NULL, ELSE 0은 0. COUNT는 ELSE 0이면 0도 세서 결과가 달라짐",
     "PIVOT 없이 행을 열로 펼칠 때 이 방식을 씀",
     "CASE는 SELECT뿐 아니라 WHERE, ORDER BY, GROUP BY 안에도 쓸 수 있음"] },
   { t: { cols: ["", "CASE", "DECODE"], rows: [["표준", "ANSI 표준", "Oracle 전용"], ["비교", "범위·조건 모두", "같음(=)만"], ["NULL", "WHEN NULL은 안 맞음 (IS NULL 써야)", "NULL = NULL로 봄"]] } }
