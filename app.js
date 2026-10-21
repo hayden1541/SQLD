@@ -2,6 +2,8 @@
 // ───────── 데이터 ─────────
 const BANK = window.BANK, CONCEPTS = window.CONCEPTS, FLASH = window.FLASH;
 const QMAP = {}; BANK.forEach(q => { QMAP[q.id] = q; });
+// 문항별 보강: 핵심개념(kk) · 꿀팁(tip) · 보기별 오답 이유(w)
+Object.entries(window.PLUS || {}).forEach(([id, p]) => { const q = QMAP[id]; if (!q) return; if (p.w && p.w.length === 4) q.w = p.w; if (p.k) q.kk = p.k; if (p.t) q.tip = p.t; });
 const CMAP = {}; CONCEPTS.forEach(c => { CMAP[c.id] = c; });
 const BY_C = {}; BANK.forEach(q => { (BY_C[q.c] = BY_C[q.c] || []).push(q.id); });
 const DLABEL = ['', '초급', '중급', '고급', '실전'];
@@ -186,12 +188,17 @@ const dtag = d => `<span class="tag d${d}">${DLABEL[d]}</span>`;
 let view = 'home', P = {}, QS = null, timerId = null;
 const TABS = [['home', '홈', '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'], ['practice', '문제', '<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
   ['wrong', '오답', '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>'], ['concepts', '개념', '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/>'], ['stats', '분석', '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>']];
-function go(v, p) { if (timerId && v !== 'mockrun') { clearInterval(timerId); timerId = null; } if (v === 'quiz') snapQS(); view = v; P = p || {}; render(); window.scrollTo(0, 0); }
+// 풀이를 시작한 화면 기억 → 그만두거나 결과에서 그 화면으로 복귀
+let QFROM = { v: 'home', p: {} };
+const BACKL = { concept: '개념으로', concepts: '개념 목록으로', wrong: '오답노트로', stats: '분석으로', practice: '문제 설정으로', mockresult: '모의고사 결과로', flash: '플래시카드로' };
+function backTo() { const f = QFROM || {}; if (!f.v || f.v === 'quiz' || f.v === 'result' || f.v === 'mockrun') return go('home'); go(f.v, f.p); }
+function go(v, p) { if (v === 'quiz' && view !== 'quiz' && view !== 'result') QFROM = { v: view, p: P }; go0(v, p); }
+function go0(v, p) { if (timerId && v !== 'mockrun') { clearInterval(timerId); timerId = null; } if (v === 'quiz') snapQS(); view = v; P = p || {}; render(); window.scrollTo(0, 0); }
 function renderTabs() {
   const hide = view === 'quiz' || view === 'mockrun';
   $('#tabbar').style.display = hide ? 'none' : 'flex';
   document.body.style.paddingBottom = hide ? 'env(safe-area-inset-bottom)' : '';
-  const root = { home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats' }[view] || 'home';
+  const root = { home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
   $('#tabbar').innerHTML = TABS.map(([k, l, ic]) => `<button class="${root === k ? 'on' : ''}" onclick="go('${k}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}</button>`).join('');
 }
 function render() {
@@ -331,6 +338,7 @@ function quiz() {
   ${sh && q.w ? '<div class="why-hint">보기를 누르면 왜 틀렸는지 보여요</div>' : ''}
   ${sh ? `<div class="exp ${ok ? 'ok' : 'no'}"><b>${ok ? '정답' : '오답 · 정답 ' + MK[q.a]}</b><br>${md(q.e)}</div>
     ${QS.rv && QS.rv[q.id] ? `<div class="rvnote">${esc(QS.rv[q.id])}</div>` : ''}
+    ${plusH(q)}
     <div class="row" style="flex-wrap:wrap"><button class="chip c" onclick="showConcept('${c.id}')">개념 보기: ${esc(c.name)}</button>
     <button class="chip ${S.conf[q.id] ? 'on' : ''}" onclick="togConf(${q.id})">${S.conf[q.id] ? '헷갈림 표시됨' : '헷갈림 표시'}</button></div>
     <div class="navrow"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="nextQ()">${QS.i + 1 < QS.ids.length ? '다음 문제 ›' : '결과 보기'}</button></div>`
@@ -350,8 +358,8 @@ function prevQ() { if (QS.i > 0) gotoQ(QS.i - 1); }
 function nextQ() { if (QS.i + 1 < QS.ids.length) gotoQ(QS.i + 1); else go('result'); }
 function quitQuiz() {
   snapQS();
-  if (QS.mode === 'wrong') { const r = S.resume.wrong; if (r) toast(`저장했어요 · ${r.ids.length - r.i}문제 남음`); go('wrong'); return; }
-  if (Object.keys(QS.res).length) go('result'); else go('home');
+  if (QS.mode === 'wrong') { const r = S.resume.wrong; if (r) toast(`저장했어요 · ${r.ids.length - r.i}문제 남음`); if (['concept', 'mockresult', 'stats'].includes(QFROM.v)) backTo(); else go('wrong'); return; }
+  if (Object.keys(QS.res).length) go('result'); else backTo();
 }
 // 풀던 세트 저장 · 이어서 풀기 (오답 / 일반 따로)
 function snapQS() {
@@ -418,7 +426,7 @@ function inkBar() {
 function inkToggle() { INK.on = !INK.on; INK.er = false; render(); }
 // 애플펜슬 몸통 두 번 탭(앱이 호출): 문제 풀이·모의고사 화면에서만 필기 켜기/끄기
 window.onPencilTap = () => {
-  if ((view !== 'quiz' && view !== 'mockrun') || document.getElementById('sheet')) return;
+  if ((view !== 'quiz' && view !== 'mockrun' && view !== 'concept') || document.getElementById('sheet')) return;
   INK.pen = true; inkToggle(); toast(INK.on ? '필기 켜짐' : '필기 꺼짐');
 };
 function inkBarRefresh() { const b = document.querySelector('.inkbar'); if (b) b.outerHTML = inkBar(); }
@@ -506,6 +514,7 @@ function result() {
   return `<h1>결과</h1><div class="card" style="text-align:center"><div class="big">${ok} / ${ids.length}</div><div class="sub">정답률 ${pct(ids.length ? ok / ids.length : null)}</div></div>
   ${weak.length ? `<h2>이번에 틀린 개념</h2><div class="cgrid">${weak.map(([cid, v]) => `<div class="card" onclick="go('concept',{id:'${cid}'})"><div class="top"><b>${esc(CMAP[cid].name)}</b><span class="sub">${v[1]}/${v[0]}</span></div></div>`).join('')}</div>` : '<div class="card">전부 맞혔어요.</div>'}
   ${wrongs.length ? `<button class="btn" onclick="QS={ids:${JSON.stringify(wrongs)},i:0,mode:'wrong',res:{},pick:null,shown:false,title:'틀린 문제 다시'};go('quiz')">틀린 ${wrongs.length}문제 바로 다시 풀기</button>` : ''}
+  ${BACKL[QFROM.v] ? `<button class="btn" style="margin-top:10px" onclick="backTo()">← ${BACKL[QFROM.v]} 돌아가기</button>` : ''}
   <button class="btn line" style="margin-top:10px" onclick="go('home')">홈으로</button>`;
 }
 
@@ -535,13 +544,17 @@ function snip(q) {
   return t.length > 54 ? '…' + t.slice(-54) : t;
 }
 function optTap(el, k) { if (QS.shown) el.classList.toggle('open'); else pick(k); }
+function plusH(q) {
+  return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul>${q.kk.map(x => `<li>${md(x)}</li>`).join('')}</ul></div>` : '') +
+    (q.tip ? `<div class="tipbox"><b>꿀팁</b> ${md(q.tip)}</div>` : '');
+}
 function whyH(q, k) { return q.w && k !== q.a && q.w[k] ? `<span class="why">✕ ${esc(q.w[k])}</span>` : ''; }
 function peek(id) {
   const q = QMAP[id];
   sheet(`<div>${dtag(q.d)}<span class="tag">${esc(CMAP[q.c].name)}</span></div>${tblBlock(q, true)}<div class="q">${md(q.q)}</div>${qExtra(q)}${figs(q)}${qCode(q)}
   ${q.o.map((t, k) => `<div class="opt ${k === q.a ? 'right' : ''}${q.w && k !== q.a ? ' hasw' : ''}" onclick="this.classList.toggle('open')"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${whyH(q, k)}</span></div>`).join('')}
   ${q.w ? '<div class="why-hint">보기를 누르면 왜 틀렸는지 보여요</div>' : ''}
-  <div class="exp ok">${md(q.e)}</div>
+  <div class="exp ok">${md(q.e)}</div>${plusH(q)}
   ${S.conf[id] ? `<button class="btn line" onclick="togConf(${id});closeSheet()">헷갈림 표시 해제</button>` : ''}`);
 }
 
@@ -575,7 +588,11 @@ function moreHTML(c) {
     b.h ? `<h3>${md(b.h)}</h3>` : b.p ? `<p>${md(b.p)}</p>` : b.li ? `<ul>${b.li.map(x => `<li>${md(x)}</li>`).join('')}</ul>` :
     b.t ? tb(b.t, 'mt') : b.code ? `<pre class="code">${esc(b.code.join('\n'))}</pre>${b.out ? `<div class="mout"><span>실행 결과${b.out.rows.length ? '' : ' · 0건'}</span>${b.out.rows.length ? tb(b.out, 'mo') : ''}</div>` : ''}` : '').join('')}</div>`;
 }
-function concept() { return `<button class="icon-btn" onclick="go('concepts')">← 개념 목록</button>` + `<div class="card" style="margin-top:12px">${conceptBody(CMAP[P.id])}</div>`; }
+function concept() {
+  const k = 'c_' + P.id;
+  return `<div class="top" style="margin-top:4px"><button class="icon-btn" onclick="go('concepts')">← 개념 목록</button>${inkBar()}</div>
+  <div class="inkw inkall ${INK.on ? 'inking' : ''}${(INK.s[k] || []).length ? ' hasink' : ''}" id="inkw" data-q="${k}"><div class="card cink" style="margin-top:12px">${conceptBody(CMAP[P.id])}</div><canvas class="ink" id="ink"></canvas></div>`;
+}
 function togDone(id) { if (S.cdone[id]) delete S.cdone[id]; else S.cdone[id] = today(); save(); render(); }
 
 // ───────── 분석 ─────────
