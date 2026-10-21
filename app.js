@@ -544,9 +544,17 @@ function snip(q) {
   return t.length > 54 ? '…' + t.slice(-54) : t;
 }
 function optTap(el, k) { if (QS.shown) el.classList.toggle('open'); else pick(k); }
+// 'N번과', 'N·M번과', 'N번(' 처럼 다른 문항을 가리키는 번호만 링크로 (부서번호 10~40은 제외)
+function qref(h, self) {
+  return h.replace(/((?:\d{2,4}·)*\d{2,4})번(?=과|와|\(|이 |의 |처럼| 결과| 규칙| 원리| 공식)/g, (m, g) => {
+    const ids = g.split('·').map(Number);
+    if (!ids.every(n => QMAP[n] && n !== self && ![10, 20, 30, 40].includes(n))) return m;
+    return ids.map(n => `<a class="qref" onclick="event.stopPropagation();peek(${n})">${n}</a>`).join('·') + '번';
+  });
+}
 function plusH(q) {
-  return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul>${q.kk.map(x => `<li>${md(x)}</li>`).join('')}</ul></div>` : '') +
-    (q.tip ? `<div class="tipbox"><b>꿀팁</b> ${md(q.tip)}</div>` : '');
+  return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul>${q.kk.map(x => `<li>${qref(md(x), q.id)}</li>`).join('')}</ul></div>` : '') +
+    (q.tip ? `<div class="tipbox"><b>꿀팁</b> ${qref(md(q.tip), q.id)}</div>` : '');
 }
 function whyH(q, k) { return q.w && k !== q.a && q.w[k] ? `<span class="why">✕ ${esc(q.w[k])}</span>` : ''; }
 function peek(id) {
