@@ -1054,3 +1054,322 @@ s36: [
 ]
 
 });
+// 2차 보강: 2024 개정 출제 범위(데이터 모델과 SQL, SELECT 기본, 윈도우 분류 등)와 문제은행에서 빠져 있던 내용을 각 개념 뒤에 덧붙임
+(function (A) { for (const k in A) window.CMORE[k] = window.CMORE[k].concat(A[k]); })({
+
+c02: [
+  { h: "모델링 3요소와 ERD의 출발" },
+  { li: [
+    "모델링이 다루는 3요소: 업무가 관여하는 **어떤 것(Things)**, 그것의 **성격(Attributes)**, 그것들 사이의 **관계(Relationships)** → 엔터티·속성·관계",
+    "ERD는 1976년 **피터 첸(Peter Chen)**이 처음 제안. 이후 IE(정보공학), Barker 표기법이 실무에 널리 쓰임",
+    "개념 모델은 전사(EA) 수준에서 많이 쓰고, 프로젝트에서는 논리 모델부터 자세히 그리는 경우가 많음"] }
+],
+
+c03: [
+  { h: "보기에 섞여 나오는 가짜 용어" },
+  { p: "데이터 독립성은 **논리적 독립성**과 **물리적 독립성** 두 가지뿐입니다. '개념적 독립성', '외부적 독립성', '내부적 독립성'은 없는 용어라서 보기에 나오면 오답입니다. 외부 스키마를 '서브 스키마', 개념 스키마를 '조직 전체 관점의 통합 스키마'라고 표현하는 건 맞는 설명입니다." },
+  { h: "독립성이 없으면 생기는 일" },
+  { li: ["저장 구조를 바꿀 때마다 프로그램을 같이 고쳐야 해서 유지보수 비용이 커짐", "사용자마다 따로 데이터를 들고 있게 되어 중복과 불일치가 생김", "요구사항 변화에 대응하기 어려워짐"] }
+],
+
+c05: [
+  { h: "함수적 종속 세 종류 (정규화와 이어짐)" },
+  { t: { cols: ["종속", "뜻", "예 — 주문상세(주문번호, 상품번호, 수량, 상품명, 주문일자)"], rows: [
+    ["완전 함수 종속", "PK **전체**가 있어야 값이 정해짐", "수량 ← (주문번호, 상품번호)"],
+    ["부분 함수 종속", "PK **일부**만으로 값이 정해짐 → 2NF 위배", "상품명 ← 상품번호, 주문일자 ← 주문번호"],
+    ["이행 함수 종속", "PK → 일반 속성 → 다른 속성 (A→B, B→C) → 3NF 위배", "사번 → 부서코드 → 부서명"]] } },
+  { p: "속성은 원칙적으로 주식별자에 **완전 함수 종속**해야 합니다. 그렇지 않은 속성이 보이면 정규화 대상입니다." }
+],
+
+c07: [
+  { h: "본질식별자 vs 인조식별자 (출제 범위 항목)" },
+  { t: { cols: ["", "본질식별자", "인조식별자"], rows: [
+    ["뜻", "업무에 원래 있던 값으로 만든 식별자", "업무에 없던 값을 새로 만들어 붙인 식별자 (일련번호)"],
+    ["예", "주문상세 PK = (주문번호, 상품번호)", "주문상세 PK = 주문상세번호"],
+    ["장점", "중복 입력을 PK가 막아 줌, 별도 인덱스 불필요", "PK가 짧고 단순, 조인·SQL이 간단"],
+    ["단점", "복합키가 길어지면 SQL이 복잡", "같은 (주문, 상품)이 두 번 들어가도 못 막음, 본질 속성용 인덱스가 따로 필요"]] } },
+  { p: "인조식별자 값은 보통 MAX(번호)+1로 따거나, 시퀀스(SEQUENCE) 같은 채번 객체로 만듭니다. MAX+1 방식은 동시에 두 명이 입력하면 같은 번호가 나올 수 있어서 잠금이나 재시도 처리가 필요합니다." },
+  { p: "인조식별자를 쓸지는 '본질식별자가 너무 길고 복잡한가'와 '중복을 다른 방법(UNIQUE 제약)으로 막을 수 있는가'를 보고 정합니다." },
+  { h: "강한 개체와 약한 개체" },
+  { li: [
+    "**강한 개체(Strong Entity)**: 다른 엔터티 없이 혼자 존재할 수 있음. 자기 식별자를 가짐 (고객, 상품)",
+    "**약한 개체(Weak Entity)**: 다른 엔터티가 있어야 존재할 수 있음. 부모 식별자를 받아 와야 식별됨 (주문상세, 부양가족)",
+    "약한 개체와 부모의 관계가 보통 **식별 관계**"] }
+],
+
+c10: [
+  { h: "몇 정규형인지 판단하는 순서" },
+  { li: [
+    "① 한 칸에 값이 여러 개 들어 있나? → 있으면 1NF 위배",
+    "② PK가 복합키인가? 그렇다면 PK 일부만으로 정해지는 속성이 있나? → 있으면 2NF 위배",
+    "③ PK가 아닌 속성이 다른 일반 속성을 결정하나? → 있으면 3NF 위배",
+    "④ 후보키가 아닌 속성이 키 일부를 결정하나? → BCNF 위배"] },
+  { p: "'위배하는 정규형'을 묻는 문제는 가장 낮은 단계부터 확인합니다. 2NF를 이미 어기면 3NF는 따질 필요 없이 '2NF 위배'가 답입니다." },
+  { p: "정규화는 '일반 속성끼리의 종속'(이행 종속)을 끊고, '주식별자 전체에 종속'(완전 함수 종속)하도록 만드는 과정이라고 정리하면 1~3NF가 한 줄로 이어집니다." }
+],
+
+c11: [
+  { h: "반정규화를 검토하는 경우" },
+  { li: [
+    "**정규화에 충실하면** 조인이 너무 많아져 조회가 느린 경우",
+    "**대량의 범위**를 자주 읽는 경우 (최근 3년치 매출 등)",
+    "**특정 범위**만 자주 읽는 경우 (이번 달 주문만)",
+    "**요약·집계 정보**를 자주 요구하는 경우 (부서별 월 합계)"] },
+  { h: "중복된 데이터를 맞추는 방법" },
+  { p: "반정규화로 같은 값이 두 곳에 생기면 한쪽이 바뀔 때 다른 쪽도 바꿔야 합니다. DB의 **트리거**로 자동 갱신하거나, 애플리케이션 로직이나 배치 작업으로 맞춥니다. 이 비용까지 따져서 반정규화 여부를 정합니다." }
+],
+
+c12: [
+  { h: "변환 방식별 장단점" },
+  { t: { cols: ["방식", "장점", "단점"], rows: [
+    ["One to One (각각)", "서브타입별 조회가 빠름, NULL 적음", "전체 조회 시 UNION·조인 필요, 테이블 많아짐"],
+    ["Plus (슈퍼+서브)", "서브타입 단독 처리에 유리", "공통 속성이 서브마다 중복"],
+    ["Single (하나로)", "조인 없음, 전체 조회 간단", "서브타입 전용 컬럼이 다른 행에서 NULL투성이, 테이블이 커짐"]] } }
+],
+
+c13: [
+  { h: "모델이 표현하는 트랜잭션 (출제 범위 항목)" },
+  { p: "ERD의 관계 선택사양(필수/선택)을 보면 어떤 데이터가 **같은 트랜잭션**으로 함께 입력돼야 하는지 알 수 있습니다." },
+  { t: { cols: ["관계", "의미", "트랜잭션"], rows: [
+    ["주문 ─ 주문상세 (양쪽 필수)", "주문상세 없는 주문, 주문 없는 주문상세는 있을 수 없음", "주문과 주문상세를 **한 트랜잭션**으로 같이 INSERT, 같이 COMMIT"],
+    ["고객 ─ 주문 (고객 쪽 선택)", "주문이 없는 고객도 있을 수 있음", "고객 가입과 첫 주문은 **별도 트랜잭션**"]] } },
+  { li: [
+    "서로 필수 관계인 엔터티는 하나만 저장되면 데이터가 불완전해짐 → 한 단위로 묶어 원자성 보장",
+    "트랜잭션은 부분 COMMIT이 없음. 주문만 커밋하고 주문상세는 나중에, 같은 방식은 안 됨",
+    "한 트랜잭션 안에 SELECT·INSERT·UPDATE·DELETE가 여러 개 들어갈 수 있음"] },
+  { p: "그래서 '두 엔터티가 서로 필수 관계이면 하나의 트랜잭션으로 처리해야 한다'는 설명은 맞는 보기입니다." }
+],
+
+c14: [
+  { h: "동시성 제어와 잠금" },
+  { li: [
+    "**공유 잠금(Shared Lock)**: 읽을 때. 다른 트랜잭션도 같이 읽을 수 있지만 수정은 못 함",
+    "**배타 잠금(Exclusive Lock)**: 수정할 때. 다른 트랜잭션은 그 행을 수정할 수 없음",
+    "**교착 상태(Deadlock)**: A는 B가 잡은 행을, B는 A가 잡은 행을 서로 기다려 둘 다 멈춤. DBMS가 한쪽을 롤백시켜 풀어 줌",
+    "**갱신 손실(Lost Update)**: 두 트랜잭션이 같은 값을 읽고 각자 고쳐 저장해서 먼저 저장한 변경이 사라짐"] },
+  { p: "Oracle은 읽기와 쓰기가 서로를 막지 않습니다. 다른 트랜잭션이 수정 중인 행을 읽으면 커밋 전 값(이전 이미지)을 보여 줘서, Read Committed에서 Dirty Read가 생기지 않습니다." }
+],
+
+c15: [
+  { h: "관계와 조인의 이해 (출제 범위 항목)" },
+  { p: "모델에서 그린 관계가 SQL에서는 조인 조건이 됩니다. 관계 모양을 보면 어떤 조인을 써야 하는지가 정해집니다." },
+  { t: { cols: ["모델의 관계", "SQL"], rows: [
+    ["1:M (부서 ─< 사원)", "자식 FK = 부모 PK로 EQUI 조인. 부모 쪽 짝 없는 행까지 보려면 OUTER"],
+    ["계층형 (사원 ─ 관리자, 자기 참조)", "같은 테이블 **셀프 조인** (한 단계) 또는 계층형 질의 (여러 단계)"],
+    ["상호배타 (주문 → 개인고객 또는 법인고객)", "두 부모 테이블에 각각 **OUTER JOIN**하거나, 두 조인 결과를 **UNION ALL**"],
+    ["M:N (학생 >─< 과목)", "교차 엔터티(수강)를 가운데 두고 조인 두 번"]] } },
+  { code: ["-- 상호배타: 주문마다 개인 또는 법인 고객 이름", "SELECT O.주문번호, NVL(P.이름, C.법인명) 고객명", "FROM 주문 O", "LEFT JOIN 개인고객 P ON O.개인고객번호 = P.고객번호", "LEFT JOIN 법인고객 C ON O.법인고객번호 = C.고객번호;"] },
+  { h: "NULL과 3값 논리" },
+  { p: "SQL의 조건은 TRUE, FALSE에 UNKNOWN(NULL과 비교한 결과)까지 세 가지 값을 가집니다. WHERE는 TRUE인 행만 남깁니다." },
+  { t: { cols: ["A", "B", "A AND B", "A OR B"], rows: [
+    ["TRUE", "UNKNOWN", "UNKNOWN", "TRUE"],
+    ["FALSE", "UNKNOWN", "FALSE", "UNKNOWN"],
+    ["UNKNOWN", "UNKNOWN", "UNKNOWN", "UNKNOWN"]] } },
+  { li: ["NOT UNKNOWN = UNKNOWN", "AND는 FALSE가 하나라도 있으면 FALSE, OR는 TRUE가 하나라도 있으면 TRUE", "NOT IN에 NULL이 섞이면 AND 사슬에 UNKNOWN이 끼어 전부 탈락하는 이유가 이것"] },
+  { h: "모델링에서 NULL을 줄이는 이유" },
+  { p: "NULL이 많은 컬럼은 비교·집계·조인에서 예상과 다른 결과를 만들기 쉽습니다. 필수 속성은 NOT NULL로 두고, 꼭 필요하면 기본값(DEFAULT)을 주거나 별도 엔터티로 분리합니다. IE 표기법은 속성의 NULL 허용 여부를 표시하지 못하고, Barker는 속성 앞 `o`로 표시합니다." }
+],
+
+c17: [
+  { h: "IE와 Barker 한눈에 비교" },
+  { t: { cols: ["항목", "IE (까마귀발)", "Barker"], rows: [
+    ["실선 / 점선", "식별 / 비식별 관계", "필수 / 선택 참여"],
+    ["식별 관계 표시", "실선", "관계선을 가로지르는 막대(UID bar)"],
+    ["선택 참여 표시", "○ 기호", "점선"],
+    ["속성 NULL 여부", "표시 못 함", "* 필수, o 선택"],
+    ["주식별자", "엔터티 상자 위 칸", "# 기호"],
+    ["서브타입", "별도 기호", "슈퍼타입 상자 안에 상자"]] } }
+],
+
+s02: [
+  { h: "무결성 세 가지" },
+  { t: { cols: ["무결성", "지키는 규칙", "수단"], rows: [
+    ["개체 무결성", "PK는 NULL이면 안 되고 중복도 안 됨", "PRIMARY KEY"],
+    ["참조 무결성", "FK 값은 참조하는 테이블에 실제로 있거나 NULL", "FOREIGN KEY"],
+    ["도메인 무결성", "컬럼 값이 정해진 타입·범위 안에 있어야 함", "데이터 타입, CHECK, NOT NULL"]] } },
+  { p: "SQL은 ANSI/ISO가 정한 표준 언어입니다. 다만 DBMS마다 방언이 있어 Oracle의 (+) 조인, DECODE, ROWNUM처럼 표준이 아닌 문법도 시험에 나옵니다." }
+],
+
+s03: [
+  { h: "SELECT 기본 문법" },
+  { li: [
+    "`SELECT *` 모든 컬럼. `SELECT ALL`은 기본값(중복 포함)",
+    "`SELECT DISTINCT` 중복 행 제거. DISTINCT는 SELECT 바로 뒤에 **한 번**만, 뒤에 오는 **모든 컬럼 조합**에 적용",
+    "산술 연산자 `+ - * /` (NULL이 끼면 결과 NULL), 문자 연결 `||`",
+    "문자·날짜 상수는 작은따옴표 'A', 별칭은 큰따옴표 \"A\"",
+    "Oracle은 FROM이 필수라서 상수만 볼 때도 `SELECT 1 + 1 FROM DUAL`. DUAL은 1행 1열짜리 더미 테이블"] },
+  { code: ["SELECT DISTINCT DEPTNO, JOB FROM EMP;     -- (부서, 직무) 조합 기준으로 중복 제거"],
+    out: { cols: ["DEPTNO", "JOB"], rows: [["10", "CLERK"], ["10", "MANAGER"], ["10", "PRESIDENT"], ["20", "ANALYST"], ["20", "CLERK"], ["20", "MANAGER"], ["30", "CLERK"], ["30", "MANAGER"], ["30", "SALESMAN"]] },
+    chk: "SELECT DISTINCT DEPTNO, JOB FROM EMP ORDER BY 1, 2" },
+  { p: "`SELECT DISTINCT DEPTNO, DISTINCT JOB`처럼 두 번 쓰면 오류입니다. DISTINCT와 ORDER BY를 같이 쓰면 SELECT에 없는 컬럼으로는 정렬할 수 없습니다." }
+],
+
+s04: [
+  { h: "단일행 함수 vs 다중행 함수" },
+  { t: { cols: ["", "단일행 함수", "다중행(집계) 함수"], rows: [
+    ["결과", "**행마다** 하나", "**그룹마다** 하나"],
+    ["예", "문자·숫자·날짜·변환·NULL 함수, CASE", "COUNT, SUM, AVG, MAX, MIN"],
+    ["쓸 수 있는 곳", "SELECT, WHERE, ORDER BY 등 거의 모든 절", "SELECT, HAVING, ORDER BY (WHERE 불가)"],
+    ["중첩", "여러 번 중첩 가능 UPPER(SUBSTR(…))", "Oracle은 GROUP BY와 함께 2단계까지"]] } },
+  { p: "단일행 함수는 인자로 컬럼, 상수, 다른 함수의 결과를 받을 수 있고, 원본 데이터는 바꾸지 않고 결과만 돌려줍니다." }
+],
+
+s05: [
+  { h: "날짜 서식과 EXTRACT" },
+  { t: { cols: ["서식", "뜻", "예 (1981-11-17 15:05:09)"], rows: [
+    ["YYYY / YY", "연도", "1981 / 81"], ["MM / MON", "월", "11 / NOV"], ["DD", "일", "17"],
+    ["DAY / DY", "요일", "TUESDAY / TUE"], ["HH24 / HH", "시 (24시간 / 12시간)", "15 / 03"], ["MI", "분", "05"], ["SS", "초", "09"]] } },
+  { li: [
+    "`EXTRACT(YEAR FROM HIREDATE)` 날짜에서 연·월·일만 숫자로 뽑기 (MONTH, DAY도 가능)",
+    "`ROUND(날짜, 'MM')`, `TRUNC(날짜, 'YYYY')` 날짜도 단위별 반올림·버림 가능",
+    "`SYSDATE` 현재 일시 (SQL Server GETDATE()), `SYSTIMESTAMP` 소수점 초까지"] },
+  { code: ["SELECT EXTRACT(YEAR FROM HIREDATE) 입사년도, COUNT(*)", "FROM EMP GROUP BY EXTRACT(YEAR FROM HIREDATE) ORDER BY 1;"],
+    out: { cols: ["입사년도", "COUNT(*)"], rows: [["1980", "1"], ["1981", "10"], ["1982", "1"], ["1987", "2"]] },
+    chk: "SELECT EXTRACT(YEAR FROM HIREDATE), COUNT(*) FROM EMP GROUP BY 1 ORDER BY 1" },
+  { p: "MM은 월(Month), MI는 분(Minute)입니다. 'YYYY-MM-DD HH:MM:SS'처럼 분 자리에 MM을 쓰면 월이 찍히는 실수가 자주 나옵니다." }
+],
+
+s06: [
+  { h: "NVL과 COALESCE 차이" },
+  { li: [
+    "NVL은 인자 2개, COALESCE는 2개 이상",
+    "COALESCE는 왼쪽부터 보다가 NULL 아닌 값을 만나면 **나머지는 계산하지 않음**. NVL은 두 인자를 모두 계산",
+    "NVL(A, B)에서 B는 A의 타입으로 바뀔 수 있어야 함. `NVL(COMM, '없음')`처럼 숫자 컬럼에 문자를 넣으면 오류 → `NVL(TO_CHAR(COMM), '없음')`",
+    "COALESCE(A, B)는 `CASE WHEN A IS NOT NULL THEN A ELSE B END`와 같음"] }
+],
+
+s07: [
+  { h: "CASE로 조건부 집계" },
+  { code: ["SELECT SUM(CASE WHEN DEPTNO = 10 THEN SAL END)          D10,", "       SUM(CASE WHEN DEPTNO = 20 THEN SAL ELSE 0 END)   D20,", "       COUNT(CASE WHEN SAL >= 2000 THEN 1 END)          고액", "FROM EMP;"],
+    out: { cols: ["D10", "D20", "고액"], rows: [["8750", "10875", "6"]] },
+    chk: "SELECT SUM(CASE WHEN DEPTNO=10 THEN SAL END), SUM(CASE WHEN DEPTNO=20 THEN SAL ELSE 0 END), COUNT(CASE WHEN SAL>=2000 THEN 1 END) FROM EMP" },
+  { li: [
+    "ELSE 없이 맞지 않는 행은 NULL → SUM·COUNT에서 빠지므로 ELSE 0과 결과가 같음 (단 COUNT는 ELSE 0이면 0도 세서 달라짐)",
+    "PIVOT 없이 행을 열로 펼칠 때 이 방식을 씀",
+    "CASE는 SELECT뿐 아니라 WHERE, ORDER BY, GROUP BY 안에도 쓸 수 있음"] },
+  { t: { cols: ["", "CASE", "DECODE"], rows: [["표준", "ANSI 표준", "Oracle 전용"], ["비교", "범위·조건 모두", "같음(=)만"], ["NULL", "WHEN NULL은 안 맞음 (IS NULL 써야)", "NULL = NULL로 봄"]] } }
+],
+
+s10: [
+  { h: "더 알아둘 집계 규칙" },
+  { li: [
+    "`COUNT(DISTINCT JOB)` 5 (종류 수), `COUNT(JOB)` 14. DISTINCT도 NULL은 세지 않음",
+    "`SUM(DISTINCT SAL)`은 같은 급여를 한 번만 더함 (3000이 둘이어도 한 번)",
+    "STDDEV(표준편차), VARIANCE(분산)도 집계함수이며 NULL 제외",
+    "GROUP BY 없이 집계함수를 쓰면 전체가 한 그룹 → 결과 1행. 이때 일반 컬럼을 같이 쓰면 오류",
+    "행이 0건인 테이블: `SELECT COUNT(*) …` 결과 0 (1행), `SELECT SUM(SAL) …` 결과 NULL (1행). 단 GROUP BY를 붙이면 그룹이 없어서 0행"] }
+],
+
+s12: [
+  { h: "ORDER BY 제약" },
+  { li: [
+    "GROUP BY가 있으면 ORDER BY에는 GROUP BY 컬럼, 집계함수, SELECT 별칭만 올 수 있음",
+    "DISTINCT가 있으면 SELECT에 나온 컬럼으로만 정렬",
+    "집합 연산(UNION 등)에서는 맨 끝 ORDER BY에 첫 SELECT의 컬럼명·별칭·위치 번호만",
+    "CASE로 정렬 순서를 직접 정할 수도 있음: `ORDER BY CASE JOB WHEN 'PRESIDENT' THEN 1 ELSE 2 END, SAL DESC`"] }
+],
+
+s13: [
+  { h: "NON EQUI 조인 예 — 급여 등급" },
+  { code: ["-- SALGRADE: 1등급 700~1200, 2등급 1201~1400, 3등급 1401~2000, 4등급 2001~3000, 5등급 3001~9999", "SELECT S.GRADE, COUNT(*)", "FROM EMP E JOIN SALGRADE S ON E.SAL BETWEEN S.LOSAL AND S.HISAL", "GROUP BY S.GRADE ORDER BY 1;"],
+    out: { cols: ["GRADE", "COUNT(*)"], rows: [["1", "3"], ["2", "3"], ["3", "2"], ["4", "5"], ["5", "1"]] },
+    chk: "SELECT S.GRADE, COUNT(*) FROM EMP E JOIN SALGRADE S ON E.SAL BETWEEN S.LOSAL AND S.HISAL GROUP BY S.GRADE ORDER BY 1" },
+  { p: "= 대신 범위 조건으로 짝을 찾는 조인입니다. 등급 구간이 겹치지 않게 짜여 있어서 사원마다 정확히 한 등급에 붙습니다." },
+  { h: "INNER 조인에서 ON과 WHERE" },
+  { p: "INNER JOIN에서는 조건을 ON에 두든 WHERE에 두든 결과가 같습니다. 차이가 생기는 건 OUTER JOIN일 때뿐입니다." }
+],
+
+s16: [
+  { h: "FULL OUTER JOIN" },
+  { code: ["SELECT COUNT(*) FROM DEPT D FULL OUTER JOIN EMP E ON D.DEPTNO = E.DEPTNO;"], out: { cols: ["COUNT(*)"], rows: [["15"]] },
+    chk: "SELECT COUNT(*) FROM DEPT D FULL OUTER JOIN EMP E ON D.DEPTNO = E.DEPTNO" },
+  { p: "짝이 있는 14행에 사원이 없는 40번 부서 1행이 더해져 15행입니다. FULL OUTER = LEFT 결과 ∪ RIGHT 결과이고, 중복은 한 번만 나옵니다. RIGHT JOIN은 테이블 순서를 바꾼 LEFT JOIN과 같습니다." }
+],
+
+s20: [
+  { h: "WITH 절 (서브쿼리 팩토링)" },
+  { code: ["WITH DEPT_AVG AS (", "  SELECT DEPTNO, AVG(SAL) AVG_SAL FROM EMP GROUP BY DEPTNO", ")", "SELECT E.ENAME, E.SAL, D.AVG_SAL", "FROM EMP E JOIN DEPT_AVG D ON E.DEPTNO = D.DEPTNO", "WHERE E.SAL > D.AVG_SAL;"] },
+  { p: "인라인 뷰에 이름을 붙여 맨 앞에 미리 정의해 두는 방식입니다. 같은 서브쿼리를 여러 번 쓸 때 한 번만 적으면 되고 읽기도 쉬워집니다. 재귀 WITH로 계층 구조를 펼칠 수도 있습니다." },
+  { h: "뷰 만들고 지우기" },
+  { code: ["CREATE OR REPLACE VIEW V_EMP10 AS", "  SELECT EMPNO, ENAME, JOB FROM EMP WHERE DEPTNO = 10;", "DROP VIEW V_EMP10;"] }
+],
+
+s22: [
+  { h: "세미 조인과 안티 조인" },
+  { li: [
+    "**세미 조인**: 짝이 있는지만 확인하고 바깥 행을 한 번만 돌려줌 → EXISTS, IN",
+    "**안티 조인**: 짝이 없는 바깥 행만 돌려줌 → NOT EXISTS, NOT IN (NULL 주의)",
+    "일반 조인은 짝 수만큼 행이 늘어나지만, 세미 조인은 늘어나지 않음 — '부서 목록' 같은 결과에 조인을 쓰면 중복이 생겨 DISTINCT가 필요해지는 이유"] }
+],
+
+s23: [
+  { h: "집합 연산과 정렬" },
+  { li: [
+    "ORDER BY는 첫 SELECT의 컬럼명이나 별칭, 또는 위치 번호로",
+    "UNION·INTERSECT·MINUS는 중복 제거 과정에서 정렬처럼 보이는 결과가 나올 수 있지만, 순서를 보장하려면 ORDER BY를 써야 함",
+    "UNION ALL은 정렬·중복 제거를 안 해서 결과가 겹치지 않는 게 확실하면 UNION보다 빠름"] }
+],
+
+s25: [
+  { h: "윈도우 함수 전체 지도" },
+  { t: { cols: ["분류", "함수"], rows: [
+    ["순위", "RANK, DENSE_RANK, ROW_NUMBER"],
+    ["집계", "SUM, MAX, MIN, AVG, COUNT (+ OVER)"],
+    ["행 순서", "FIRST_VALUE, LAST_VALUE, LAG, LEAD"],
+    ["비율", "RATIO_TO_REPORT, PERCENT_RANK, CUME_DIST, NTILE"]] } },
+  { li: [
+    "OVER( )는 반드시 붙음. 안에 PARTITION BY, ORDER BY, 윈도잉절(ROWS/RANGE)",
+    "순위 함수는 OVER 안에 ORDER BY가 필수",
+    "GROUP BY와 달리 결과 행 수가 줄지 않음 → 원래 행 옆에 계산값이 붙음",
+    "WHERE·GROUP BY·HAVING에는 못 쓰고 SELECT·ORDER BY에서만"] }
+],
+
+s26: [
+  { h: "이동 평균과 값 범위" },
+  { code: ["SELECT ENAME, SAL,", "  ROUND(AVG(SAL) OVER (ORDER BY SAL, EMPNO ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)) 이동평균,", "  COUNT(*) OVER (ORDER BY SAL RANGE BETWEEN 150 PRECEDING AND 150 FOLLOWING) 근처인원", "FROM EMP WHERE DEPTNO = 30;"],
+    out: { cols: ["ENAME", "SAL", "이동평균", "근처인원"], rows: [["JAMES", "950", "1100", "1"], ["WARD", "1250", "1150", "2"], ["MARTIN", "1250", "1333", "2"], ["TURNER", "1500", "1450", "2"], ["ALLEN", "1600", "1983", "2"], ["BLAKE", "2850", "2225", "1"]] },
+    chk: "SELECT ENAME, SAL, ROUND(AVG(SAL) OVER (ORDER BY SAL, EMPNO ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)), COUNT(*) OVER (ORDER BY SAL RANGE BETWEEN 150 PRECEDING AND 150 FOLLOWING) FROM EMP WHERE DEPTNO=30 ORDER BY SAL, EMPNO" },
+  { li: [
+    "ROWS 1 PRECEDING ~ 1 FOLLOWING: 앞 행·자기·뒤 행 평균. JAMES는 앞이 없어 (950+1250)/2 = 1100",
+    "RANGE 150 PRECEDING ~ 150 FOLLOWING: 내 급여 ±150 안에 드는 행 수. TURNER(1500)는 1350~1650 → TURNER, ALLEN 2명",
+    "RANGE에 숫자 범위를 주려면 ORDER BY 컬럼이 숫자나 날짜 하나여야 함"] }
+],
+
+s31: [
+  { h: "UNPIVOT의 NULL 처리 옵션" },
+  { li: ["`UNPIVOT EXCLUDE NULLS (…)` 기본값. 값이 NULL인 칸은 행으로 만들지 않음", "`UNPIVOT INCLUDE NULLS (…)` NULL인 칸도 행으로 만듦"] },
+  { p: "PIVOT에서 IN 목록에 별칭을 줄 수 있습니다: `FOR DEPTNO IN (10 AS D10, 20 AS D20)`. 집계함수에도 별칭을 주면 열 이름이 `D10_CNT`처럼 '목록별칭_집계별칭'으로 만들어집니다." }
+],
+
+s33: [
+  { h: "서브쿼리를 쓰는 DML" },
+  { code: ["UPDATE EMP SET SAL = (SELECT AVG(SAL) FROM EMP) WHERE ENAME = 'SMITH';", "DELETE FROM EMP WHERE DEPTNO IN (SELECT DEPTNO FROM DEPT WHERE LOC = 'BOSTON');", "INSERT INTO EMP_HIGH SELECT * FROM EMP WHERE SAL >= 3000;"] },
+  { p: "UPDATE의 SET에 쓰는 서브쿼리는 한 행만 돌려줘야 합니다. INSERT … SELECT는 VALUES를 쓰지 않고, 컬럼 수와 타입만 맞으면 여러 행을 한 번에 넣습니다." }
+],
+
+s34: [
+  { h: "읽기 일관성" },
+  { p: "COMMIT하기 전 변경 내용은 변경한 세션만 볼 수 있습니다. 다른 세션은 변경 전 값을 보고, 그 행을 수정하려 하면 앞 트랜잭션이 끝날 때까지 기다립니다(잠금). COMMIT이나 ROLLBACK을 하면 잠금이 풀립니다." }
+],
+
+s35: [
+  { h: "CTAS와 객체 DDL" },
+  { li: [
+    "**CTAS** = `CREATE TABLE 새테이블 AS SELECT …`. 구조와 데이터를 같이 복사하지만, 제약조건은 **NOT NULL만** 따라옴 (PK·FK·UNIQUE·CHECK·DEFAULT는 안 따라옴)",
+    "구조만 복사하려면 `WHERE 1 = 2`처럼 거짓 조건",
+    "SQL Server는 `SELECT * INTO 새테이블 FROM …`"] },
+  { code: ["ALTER TABLE PROJ ADD CONSTRAINT PROJ_UK UNIQUE (PNAME);   -- 제약조건 추가", "ALTER TABLE PROJ DROP CONSTRAINT PROJ_UK;                 -- 제약조건 삭제", "CREATE INDEX PROJ_IX1 ON PROJ (DEPTNO);                   -- 인덱스", "CREATE SEQUENCE PROJ_SEQ START WITH 1 INCREMENT BY 1;     -- 일련번호 생성기", "INSERT INTO PROJ (PNO, PNAME) VALUES (PROJ_SEQ.NEXTVAL, 'A');"] },
+  { p: "PK·UNIQUE 제약을 만들면 Oracle은 인덱스를 자동으로 만듭니다. DROP TABLE은 테이블과 함께 인덱스·제약조건도 지우지만, 다른 테이블이 FK로 참조하고 있으면 CASCADE CONSTRAINTS 없이는 지울 수 없습니다." }
+],
+
+s36: [
+  { h: "자주 나오는 권한 표현" },
+  { li: [
+    "`GRANT SELECT ON EMP TO PUBLIC` 모든 사용자에게",
+    "`GRANT ALL ON EMP TO KIM` 그 객체의 모든 객체 권한",
+    "객체 소유자는 자기 객체에 대한 모든 권한을 이미 가짐",
+    "Oracle 기본 롤: CONNECT(접속), RESOURCE(객체 생성), DBA(전체 관리)",
+    "권한을 회수할 때 롤로 받은 권한은 롤에서 빼거나 롤 자체를 회수"] }
+]
+
+});
