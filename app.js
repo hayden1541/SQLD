@@ -559,11 +559,21 @@ function conceptBody(c, inSheet) {
   <div class="row" style="margin:6px 0 4px"><span class="pill">정답률 ${pct(st.acc)}</span><span class="sub">${st.solved}/${st.total}문항 풀이</span></div>
   <ul class="sum">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
   ${figs(c)}${c.ex ? `<pre class="code">${esc(c.ex.join('\n'))}</pre>` : ''}
+  ${moreHTML(c)}
   ${c.trap ? `<div class="trap"><b>함정</b><br>${c.trap.map(md).join('<br>')}</div>` : ''}
   ${inSheet ? '' : `<div class="grid2" style="margin-top:14px">
     <button class="btn" onclick="startPractice({cs:['${c.id}'],n:${Math.min(20, st.total)},order:'new',title:'${esc(c.name)}'})">이 개념 문제 풀기</button>
     <button class="btn ${S.cdone[c.id] ? 'line' : 'ghost'}" onclick="togDone('${c.id}')">${S.cdone[c.id] ? '학습 완료 취소' : '학습 완료'}</button></div>
     <div class="grid2" style="margin-top:10px">${[1, 2, 3, 4].map(d => { const n = (BY_C[c.id] || []).filter(id => QMAP[id].d === d).length; return `<button class="btn line" ${n ? '' : 'disabled'} onclick="startPractice({cs:['${c.id}'],d:[${d}],n:${n},title:'${esc(c.name)}'})">${DLABEL[d]} ${n}</button>`; }).join('')}</div>${(() => { const un = (BY_C[c.id] || []).filter(id => !S.att[id]).length; return un ? `<button class="btn ghost" style="margin-top:8px" onclick="startPractice({cs:['${c.id}'],un:1,n:${un},order:'rand',title:'${esc(c.name)} · 안 푼 문제'})">이 개념에서 안 푼 문제 ${un}개</button>` : ''; })()}`}`;
+}
+// 개념 정리: 소제목·문단·목록·표·SQL 예시와 실행 결과
+function moreHTML(c) {
+  const B = (window.CMORE || {})[c.id]; if (!B) return '';
+  const cell = x => x === 'NULL' ? '<span class="muted">NULL</span>' : md(x);
+  const tb = (t, cls) => `<div class="otb"><table class="t ${cls}"><tr>${t.cols.map(x => `<th>${md(x)}</th>`).join('')}</tr>${t.rows.map(r => '<tr>' + r.map(x => `<td>${cell(x)}</td>`).join('') + '</tr>').join('')}</table></div>`;
+  return `<div class="more"><div class="more-h">개념 정리</div>${B.map(b =>
+    b.h ? `<h3>${md(b.h)}</h3>` : b.p ? `<p>${md(b.p)}</p>` : b.li ? `<ul>${b.li.map(x => `<li>${md(x)}</li>`).join('')}</ul>` :
+    b.t ? tb(b.t, 'mt') : b.code ? `<pre class="code">${esc(b.code.join('\n'))}</pre>${b.out ? `<div class="mout"><span>실행 결과${b.out.rows.length ? '' : ' · 0건'}</span>${b.out.rows.length ? tb(b.out, 'mo') : ''}</div>` : ''}` : '').join('')}</div>`;
 }
 function concept() { return `<button class="icon-btn" onclick="go('concepts')">← 개념 목록</button>` + `<div class="card" style="margin-top:12px">${conceptBody(CMAP[P.id])}</div>`; }
 function togDone(id) { if (S.cdone[id]) delete S.cdone[id]; else S.cdone[id] = today(); save(); render(); }

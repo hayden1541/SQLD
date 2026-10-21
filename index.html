@@ -176,12 +176,28 @@ pre.ocode{margin:0;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;white-s
 .rvcard{border:1.5px solid var(--pri-soft)}
 .mrc .rounds{display:flex;flex-wrap:wrap;gap:6px}.mrc .chip{margin:0}
 .mrtip{font-size:14.5px;line-height:1.55;border-left:4px solid var(--pri)}
+
+.more{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;font-size:15px;line-height:1.65;word-break:keep-all}
+.more-h{font-size:12px;font-weight:700;color:var(--pri);letter-spacing:.02em}
+.more h3{font-size:16px;margin:16px 0 6px}
+.more p{margin:6px 0 10px}
+.more ul{padding-left:18px;margin:6px 0 10px}.more li{margin:3px 0}
+.more .otb{margin:6px 0 12px}
+.more pre.code{margin:6px 0 8px;white-space:pre-wrap;word-break:break-word}
+table.mt{font-size:13.5px;line-height:1.5;font-family:inherit;width:100%}
+table.mt th,table.mt td{white-space:normal;vertical-align:top;padding:6px 8px 6px 0;word-break:keep-all}
+table.mt th{font-size:12.5px;color:var(--sub);font-weight:600}
+table.mt td:first-child{font-weight:600;min-width:4.5em}
+.mout{margin:0 0 12px}.mout>span{display:block;font-size:12px;color:var(--sub);margin:2px 0 4px}
+table.mo{width:auto;min-width:0}
+@media (min-width: 700px){ .more{font-size:16px} table.mt{font-size:14.5px} }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <nav class="tabbar" id="tabbar"></nav>
 <script src="data/concepts.js"></script>
+<script src="data/concepts_more.js"></script>
 <script src="data/bank.js"></script>
 <script src="data/bank_kc.js"></script>
 <script src="data/flash.js"></script>
