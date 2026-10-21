@@ -334,19 +334,19 @@ function quiz() {
   ${qCode(q)}
   </div><div class="qa-r">
   ${q.o.map((t, k) => { let cl = ''; if (sh) { if (k === q.a) cl = 'right'; else if (k === QS.pick) cl = 'wrong'; } else if (k === QS.pick) cl = 'sel';
-    return `<button class="opt ${cl}${sh && k === QS.pick && k !== q.a ? ' open' : ''}${sh && q.w && k !== q.a ? ' hasw' : ''}" onclick="optTap(this, ${k})"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${sh ? whyH(q, k) : ''}</span></button>`; }).join('')}
-  ${sh && q.w ? '<div class="why-hint">보기를 누르면 왜 틀렸는지 보여요</div>' : ''}
+    return `<button class="opt ${cl}${sh && k !== q.a && (k === QS.pick || !S.set.whyFold) ? ' open' : ''}${sh && q.w && k !== q.a ? ' hasw' : ''}" onclick="optTap(this, ${k})"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${sh ? whyH(q, k) : ''}</span></button>`; }).join('')}
+  ${sh && q.w ? whyTog() : ''}
   ${sh ? `<div class="exp ${ok ? 'ok' : 'no'}"><b>${ok ? '정답' : '오답 · 정답 ' + MK[q.a]}</b><br>${md(q.e)}</div>
     ${QS.rv && QS.rv[q.id] ? `<div class="rvnote">${esc(QS.rv[q.id])}</div>` : ''}
     ${plusH(q)}
     <div class="row" style="flex-wrap:wrap"><button class="chip c" onclick="showConcept('${c.id}')">개념 보기: ${esc(c.name)}</button>
     <button class="chip ${S.conf[q.id] ? 'on' : ''}" onclick="togConf(${q.id})">${S.conf[q.id] ? '헷갈림 표시됨' : '헷갈림 표시'}</button></div>
-    <div class="navrow"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="nextQ()">${QS.i + 1 < QS.ids.length ? '다음 문제 ›' : '결과 보기'}</button></div>`
-  : `<div class="navrow"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="check()" ${QS.pick == null ? 'disabled' : ''}>정답 확인</button></div>`}
+    <div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="nextQ()">${QS.i + 1 < QS.ids.length ? '다음 문제 ›' : '결과 보기'}</button></div>`
+  : `<div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="check()" ${QS.pick == null ? 'disabled' : ''}>${S.set.instant ? '보기를 누르면 바로 채점' : '정답 확인'}</button></div>`}
   </div></div><canvas class="ink" id="ink"></canvas></div>
   <div class="sub" style="text-align:center;margin-top:14px">${esc(q.src)} · #${q.id}</div>`;
 }
-function pick(k) { if (QS.shown) return; QS.pick = k; render(); }
+function pick(k) { if (QS.shown) return; QS.pick = k; if (S.set.instant) { check(); return; } render(); }
 function check() { const q = QMAP[QS.ids[QS.i]]; if (QS.pick == null) return; const ok = QS.pick === q.a; QS.res[q.id] = ok; (QS.picks = QS.picks || {})[q.id] = QS.pick; const rm = record(q.id, ok); if (rm) (QS.rv = QS.rv || {})[q.id] = rm; QS.shown = true; snapQS(); render(); }
 // 이전·다음 이동: 이미 푼 문제는 고른 답과 해설이 보이는 상태로 연다
 function gotoQ(i) {
@@ -556,12 +556,13 @@ function plusH(q) {
   return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul>${q.kk.map(x => `<li>${qref(md(x), q.id)}</li>`).join('')}</ul></div>` : '') +
     (q.tip ? `<div class="tipbox"><b>꿀팁</b> ${qref(md(q.tip), q.id)}</div>` : '');
 }
-function whyH(q, k) { return q.w && k !== q.a && q.w[k] ? `<span class="why">✕ ${esc(q.w[k])}</span>` : ''; }
+function whyTog() { return `<div class="why-hint"><button class="whytog" onclick="S.set.whyFold=!S.set.whyFold;save();render()">${S.set.whyFold ? '▾ 보기별 오답 이유 모두 펼치기' : '▴ 오답 이유 접기 (고른 보기만 남김)'}</button></div>`; }
+function whyH(q, k) { if (k === q.a) return '<span class="why okw">✓ 정답</span>'; return q.w && k !== q.a && q.w[k] ? `<span class="why">✕ ${esc(q.w[k])}</span>` : ''; }
 function peek(id) {
   const q = QMAP[id];
   sheet(`<div>${dtag(q.d)}<span class="tag">${esc(CMAP[q.c].name)}</span></div>${tblBlock(q, true)}<div class="q">${md(q.q)}</div>${qExtra(q)}${figs(q)}${qCode(q)}
-  ${q.o.map((t, k) => `<div class="opt ${k === q.a ? 'right' : ''}${q.w && k !== q.a ? ' hasw' : ''}" onclick="this.classList.toggle('open')"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${whyH(q, k)}</span></div>`).join('')}
-  ${q.w ? '<div class="why-hint">보기를 누르면 왜 틀렸는지 보여요</div>' : ''}
+  ${q.o.map((t, k) => `<div class="opt ${k === q.a ? 'right' : ''}${q.w && k !== q.a ? ' hasw' : ''}${q.w && k !== q.a && !S.set.whyFold ? ' open' : ''}" onclick="this.classList.toggle('open')"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${whyH(q, k)}</span></div>`).join('')}
+  ${q.w ? `<div class="why-hint">${S.set.whyFold ? '보기를 누르면 왜 틀렸는지 보여요' : '보기를 누르면 이유를 접을 수 있어요'}</div>` : ''}
   <div class="exp ok">${md(q.e)}</div>${plusH(q)}
   ${S.conf[id] ? `<button class="btn line" onclick="togConf(${id});closeSheet()">헷갈림 표시 해제</button>` : ''}`);
 }
@@ -739,6 +740,9 @@ function settings() {
   return `<button class="icon-btn" onclick="go('home')">← 홈</button><h1>설정</h1>
   <div class="card"><b>시험일</b><input type="date" value="${S.set.exam}" onchange="S.set.exam=this.value;save()">
   <b style="display:block;margin-top:12px">하루 목표 문항 수</b><input type="number" min="5" max="200" value="${S.set.goal}" onchange="S.set.goal=Math.max(5,+this.value||30);save()"></div>
+  <div class="card"><b>문제 풀이</b>
+  <label class="setrow"><input type="checkbox" ${S.set.instant ? 'checked' : ''} onchange="S.set.instant=this.checked;save()"> 보기를 누르면 바로 채점 <span class="sub">(정답 확인 버튼 생략)</span></label>
+  <label class="setrow"><input type="checkbox" ${S.set.whyFold ? '' : 'checked'} onchange="S.set.whyFold=!this.checked;save()"> 채점 후 보기별 오답 이유 모두 펼치기</label></div>
   <div class="card"><b>백업</b><div class="sub" style="margin:4px 0 10px">앱을 다시 설치하기 전에 백업 코드를 복사해 메모 앱 등에 붙여 두세요. 보통은 같은 앱 위에 덮어 설치하면 기록이 유지돼요.</div>
   <button class="btn ghost" onclick="exportData()">백업 코드 만들기</button>
   <textarea id="bk" rows="4" style="margin-top:10px" placeholder="백업 코드를 여기에 붙여넣고 복원"></textarea>
@@ -776,3 +780,12 @@ render();
     if (!snap.exists || ((snap.data() || {}).at || 0) < (S.at || 0)) ref.set({ json: JSON.stringify(S), at: S.at || Date.now() }).catch(() => {});
   } catch (e) {}
 })();
+
+// 키보드(아이패드 키보드·웹): 1~4 보기, Enter 채점/다음, ←/→ 이전/다음
+document.addEventListener('keydown', e => {
+  if (view !== 'quiz' || document.getElementById('sheet') || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[1-4]$/.test(e.key)) { if (!QS.shown) { pick(+e.key - 1); e.preventDefault(); } }
+  else if (e.key === 'Enter') { if (!QS.shown) { if (QS.pick != null) check(); } else nextQ(); e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { if (QS.shown) { nextQ(); e.preventDefault(); } }
+  else if (e.key === 'ArrowLeft') { prevQ(); e.preventDefault(); }
+});
