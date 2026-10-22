@@ -743,6 +743,8 @@ function settings() {
   <div class="card"><b>문제 풀이</b>
   <label class="setrow"><input type="checkbox" ${S.set.instant ? 'checked' : ''} onchange="S.set.instant=this.checked;save()"> 보기를 누르면 바로 채점 <span class="sub">(정답 확인 버튼 생략)</span></label>
   <label class="setrow"><input type="checkbox" ${S.set.whyFold ? '' : 'checked'} onchange="S.set.whyFold=!this.checked;save()"> 채점 후 보기별 오답 이유 모두 펼치기</label></div>
+  ${/^https?:/.test(location.protocol) ? `<div class="card"><b>앱 업데이트</b><div class="sub" style="margin:4px 0 10px">홈 화면에 추가해 쓰면 새로고침 버튼이 없어요. 새 내용이 안 보이면 눌러 주세요. 풀이 기록은 그대로 남아요.</div>
+  <button class="btn line" onclick="hardRefresh()">최신 버전으로 새로고침</button></div>` : ''}
   <div class="card"><b>백업</b><div class="sub" style="margin:4px 0 10px">앱을 다시 설치하기 전에 백업 코드를 복사해 메모 앱 등에 붙여 두세요. 보통은 같은 앱 위에 덮어 설치하면 기록이 유지돼요.</div>
   <button class="btn ghost" onclick="exportData()">백업 코드 만들기</button>
   <textarea id="bk" rows="4" style="margin-top:10px" placeholder="백업 코드를 여기에 붙여넣고 복원"></textarea>
@@ -789,3 +791,11 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') { if (QS.shown) { nextQ(); e.preventDefault(); } }
   else if (e.key === 'ArrowLeft') { prevQ(); e.preventDefault(); }
 });
+
+// 저장해 둔 앱 파일(캐시)만 지우고 다시 받기. 풀이 기록(localStorage)은 건드리지 않음
+async function hardRefresh() {
+  toast('최신 버전을 받는 중…');
+  try { if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k.startsWith('sqld-note-')).map(k => caches.delete(k))); } } catch (e) {}
+  try { if (navigator.serviceWorker) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.update().catch(() => {}))); } } catch (e) {}
+  location.replace(location.pathname + '?v=' + Date.now());
+}

@@ -221,7 +221,14 @@ pre.code{white-space:pre-wrap;word-break:break-word}
 <script src="app.js"></script>
 <script>
 // 오프라인에서도 열리게 서비스워커 등록, 기록이 지워지지 않게 저장소 유지 요청
-if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+// 새 버전이 올라오면 앱을 다시 열 때 자동으로 확인하고, 바뀌면 한 번 새로고침
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') r.update().catch(() => {}); });
+  }).catch(() => {}));
+  let had = !!navigator.serviceWorker.controller, done = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !done) { done = true; location.reload(); } had = true; });
+}
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
 </script>
 </body>
