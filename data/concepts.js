@@ -221,7 +221,7 @@ window.CONCEPTS = [ // 핵심기출 보강 반영
   sum: ["COMMIT 영구 반영 / ROLLBACK 취소 / SAVEPOINT 중간 지점 → ROLLBACK TO", "**Oracle DDL은 자동 커밋** → 앞의 DML까지 확정", "SQL Server는 기본 자동 커밋 ON", "SQL Server ROLLBACK(이름 없이)은 중첩 BEGIN TRAN 포함 커밋 안 된 작업 **전부** 취소"] },
 { id: "s35", s: 2, unit: "관리 구문", name: "DDL · 제약조건 · 데이터 타입",
   sum: ["PK = NOT NULL + UNIQUE, 테이블당 하나", "UNIQUE는 NULL 허용", "CHECK 값 범위, FK 참조 무결성(ON DELETE CASCADE / SET NULL)",
-        "CHAR 고정 길이(공백 채움) / VARCHAR2 가변", "ALTER TABLE ADD · MODIFY · DROP COLUMN · RENAME COLUMN", "DROP TABLE … CASCADE CONSTRAINTS", "참조동작 Insert: Automatic · Set Null · Set Default · **Dependent**(부모 PK 있을 때만 자식 입력) / Delete: Cascade · Set Null · Set Default · Restrict"] },
+        "CHAR 고정 길이(공백 채움) / VARCHAR2 가변", "ALTER TABLE ADD · MODIFY · DROP COLUMN · RENAME COLUMN", "DROP TABLE … CASCADE CONSTRAINTS", "참조동작 Insert: Automatic · Set Null · Set Default · **Dependent**(부모 PK 있을 때만 자식 입력) · No Effect / Delete: Cascade · Set Null · Set Default · Restrict · No Effect"] },
 { id: "s36", s: 2, unit: "관리 구문", name: "DCL (GRANT · REVOKE)",
   sum: ["GRANT 권한 ON 객체 TO 사용자 / REVOKE 권한 ON 객체 FROM 사용자", "WITH GRANT OPTION(객체 권한) → **연쇄 회수**", "WITH ADMIN OPTION(시스템 권한) → 연쇄 회수 없음", "ROLE = 권한 묶음"] },
 ];
