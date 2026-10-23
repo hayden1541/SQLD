@@ -36,7 +36,7 @@ function save() {
   const t = JSON.stringify(S);
   try { localStorage.setItem(KEY, t); } catch (e) {}
   try { if (NATIVE && NATIVE.save) NATIVE.save.postMessage(t); } catch (e) {}
-  if (CLOUD) { clearTimeout(cloudTimer); cloudTimer = setTimeout(() => { CLOUD.set({ json: JSON.stringify(S), at: S.at }).catch(() => {}); }, 1500); }
+  if (CLOUD) { clearTimeout(cloudTimer); cloudTimer = setTimeout(() => { Promise.resolve(CLOUD.set({ json: JSON.stringify(S), at: S.at })).catch(() => {}); }, 3000); }
 }
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 
@@ -1113,6 +1113,7 @@ function flAns(k) { const [si, ci] = FC.list[FC.i]; if (k) S.fl[si + '-' + ci] =
 // ───────── 설정 · 백업 ─────────
 function settings() {
   return `<button class="icon-btn" onclick="go('home')">← 홈</button><h1>설정</h1>
+  ${syncCard()}
   <div class="card"><b>시험일</b><input type="date" value="${S.set.exam}" onchange="S.set.exam=this.value;save()">
   <b style="display:block;margin-top:12px">하루 목표 문항 수</b><input type="number" min="5" max="200" value="${S.set.goal}" onchange="S.set.goal=Math.max(5,+this.value||30);save()"></div>
   <div class="card"><b>문제 풀이</b>
@@ -1124,7 +1125,7 @@ function settings() {
   <button class="btn ghost" onclick="exportData()">백업 코드 만들기</button>
   <textarea id="bk" rows="4" style="margin-top:10px" placeholder="백업 코드를 여기에 붙여넣고 복원"></textarea>
   <button class="btn line" style="margin-top:8px" onclick="importData()">붙여넣은 코드로 복원</button></div>
-  <div class="card"><b>초기화</b><button class="btn line" style="margin-top:8px;color:var(--bad)" onclick="ask('모든 풀이 기록을 지울까요? 되돌릴 수 없어요.', '지우기', ()=>{S=blank();save();toast('초기화했어요');render()})">모든 기록 지우기</button></div>
+  <div class="card"><b>초기화</b><button class="btn line" style="margin-top:8px;color:var(--bad)" onclick="ask('모든 풀이 기록을 지울까요? 되돌릴 수 없어요.', '지우기', ()=>{S=blank();save();fbWipe();toast('초기화했어요');render()})">모든 기록 지우기</button></div>
   <div class="sub" style="text-align:center">문제 ${BANK.length}개 · 개념 ${CONCEPTS.length}개 · 플래시카드 ${FLASH.reduce((a, s) => a + s.cards.length, 0)}장</div>`;
 }
 function exportData() {
@@ -1173,4 +1174,92 @@ async function hardRefresh() {
   try { if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k.startsWith('sqld-note-')).map(k => caches.delete(k))); } } catch (e) {}
   try { if (navigator.serviceWorker) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.update().catch(() => {}))); } } catch (e) {}
   location.replace(location.pathname + '?v=' + Date.now());
+}
+
+// ───────── 구글 로그인 · 기록 동기화 (Firebase) ─────────
+const SYNC = { user: null, at: 0, busy: false, err: '' };
+let FB = null;
+function fbOn() { return !!(window.FB_CONFIG && window.FB_CONFIG.apiKey) && /^https?:$/.test(location.protocol); }
+function fbErr(e) {
+  const c = (e && e.code) || '';
+  if (/popup-closed|cancelled-popup/.test(c)) return '로그인을 취소했어요';
+  if (/unauthorized-domain/.test(c)) return 'Firebase 승인된 도메인에 이 주소가 없어요';
+  if (/network-request-failed|unavailable/.test(c)) return '인터넷 연결을 확인해 주세요';
+  if (/permission-denied/.test(c)) return '데이터베이스 규칙 때문에 저장하지 못했어요';
+  return '로그인하지 못했어요' + (c ? ` (${c})` : '');
+}
+async function fbLoad() {
+  if (FB) return FB;
+  if (!window.firebase || !firebase.auth) { await loadScript('lib/fb-app.js'); await loadScript('lib/fb-auth.js'); await loadScript('lib/fb-store.js'); }
+  if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
+  FB = { auth: firebase.auth(), db: firebase.firestore() };
+  FB.auth.onAuthStateChanged(u => fbUser(u));
+  FB.auth.getRedirectResult().catch(e => toast(fbErr(e)));
+  return FB;
+}
+async function fbLogin() {
+  try {
+    await fbLoad();
+    const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
+    try { await FB.auth.signInWithPopup(p); }
+    catch (e) { if (/popup-blocked|operation-not-supported/.test(e.code || '')) await FB.auth.signInWithRedirect(p); else throw e; }
+  } catch (e) { toast(fbErr(e)); }
+}
+function fbLogout() { ask('로그아웃할까요? 이 기기의 기록은 그대로 남아요.', '로그아웃', async () => { try { await FB.auth.signOut(); toast('로그아웃했어요'); } catch (e) { toast(fbErr(e)); } }); }
+function mergeState(a, b) {
+  const nw = (b.at || 0) > (a.at || 0) ? b : a, od = nw === a ? b : a;
+  const m = Object.assign(blank(), a);
+  m.att = Object.assign({}, a.att);
+  Object.entries(b.att || {}).forEach(([k, x]) => { const y = m.att[k]; if (!y || x.n > y.n || (x.n === y.n && (x.lr || x.last || '') > (y.lr || y.last || ''))) m.att[k] = x; });
+  m.days = Object.assign({}, a.days);
+  Object.entries(b.days || {}).forEach(([k, x]) => { const y = m.days[k]; if (!y || x.n > y.n) m.days[k] = x; });
+  ['conf', 'cdone', 'fl', 'cause'].forEach(k => { m[k] = Object.assign({}, od[k] || {}, nw[k] || {}); });
+  const seen = new Set(), key = x => [x.date, x.total, x.s1, (x.ids || []).slice(0, 5).join(',')].join('|');
+  m.mocks = [...(a.mocks || []), ...(b.mocks || [])].filter(x => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
+  m.set = Object.assign(blank().set, nw.set || {}); m.resume = Object.assign({}, nw.resume || {});
+  m.at = Math.max(a.at || 0, b.at || 0);
+  return m;
+}
+const stateBody = x => { const c = Object.assign({}, x); delete c.at; return JSON.stringify(c); };
+// 서버 기록을 읽어 이 기기 기록과 합치고, 달라진 게 있으면 양쪽에 저장
+async function fbSync(ref, quiet) {
+  if (SYNC.busy) return; SYNC.busy = true;
+  try {
+    const snap = await ref.get(), d = snap.exists ? snap.data() : null;
+    let remote = null; try { remote = d && d.json ? JSON.parse(d.json) : null; } catch (e) {}
+    const before = stateBody(S), m = remote ? mergeState(S, remote) : S;
+    const localChanged = stateBody(m) !== before, remoteChanged = !remote || stateBody(m) !== stateBody(remote);
+    if (localChanged) { S = Object.assign(blank(), m); S.set = Object.assign(blank().set, S.set); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!quiet && view !== 'quiz' && view !== 'mockrun') render(); }
+    if (remoteChanged) await ref.set({ json: JSON.stringify(S), at: S.at || Date.now(), email: SYNC.user.email || '' });
+    SYNC.at = Date.now(); SYNC.err = '';
+  } catch (e) { SYNC.err = fbErr(e); }
+  SYNC.busy = false;
+  if (view === 'settings') render();
+}
+function fbRef() { return FB && SYNC.user ? FB.db.collection('users').doc(SYNC.user.uid) : null; }
+async function fbUser(u) {
+  SYNC.user = u || null;
+  if (!u) { CLOUD = null; try { localStorage.removeItem('sqld_fb'); } catch (e) {} if (view === 'settings') render(); return; }
+  try { localStorage.setItem('sqld_fb', '1'); } catch (e) {}
+  const ref = fbRef();
+  CLOUD = { set: () => fbSync(ref, true) };
+  await fbSync(ref);
+  if (view === 'settings' || view === 'home') render();
+}
+function fbSyncNow() { const r = fbRef(); if (r) fbSync(r).then(() => toast(SYNC.err || '동기화했어요')); }
+// 초기화: 서버 기록도 빈 기록으로 바꿈 (합치지 않음)
+function fbWipe() { const r = fbRef(); if (!r) return; clearTimeout(cloudTimer); r.set({ json: JSON.stringify(S), at: S.at, email: SYNC.user.email || '' }).catch(e => toast(fbErr(e))); }
+function syncCard() {
+  if (!fbOn()) return '';
+  const u = SYNC.user, hm = t => { const d = new Date(t); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  return `<div class="card"><b>구글 계정 연동</b>${u
+    ? `<div class="sub" style="margin:4px 0 10px">${esc(u.email || '')}로 로그인됨 · 풀 때마다 자동으로 저장돼요${SYNC.err ? `<br><span style="color:var(--bad)">${esc(SYNC.err)}</span>` : SYNC.at ? `<br>마지막 동기화 ${hm(SYNC.at)}` : ''}</div>
+    <div class="grid2"><button class="btn line" onclick="fbSyncNow()">지금 동기화</button><button class="btn line" onclick="fbLogout()">로그아웃</button></div>`
+    : `<div class="sub" style="margin:4px 0 10px">구글 계정으로 로그인하면 폰·태블릿·PC에서 같은 기록으로 이어서 풀 수 있어요. 지금 이 기기에 있는 기록도 합쳐져요.</div>
+    <button class="btn" onclick="fbLogin()">Google로 로그인</button>`}</div>`;
+}
+if (fbOn()) {
+  try { if (localStorage.getItem('sqld_fb')) fbLoad().catch(() => {}); } catch (e) {}
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const r = fbRef(); if (r) fbSync(r); } });
 }
