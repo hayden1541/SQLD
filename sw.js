@@ -1,5 +1,5 @@
 // SQLD 합격노트 서비스워커: 온라인이면 새 파일, 오프라인이면 저장해 둔 파일
-const V = 'sqld-note-0922cc7c77';
+const V = 'sqld-note-3da66f035e';
 const FILES = ["./", "app.js", "data/bank.js", "data/bank_kc.js", "data/concepts.js", "data/concepts_more.js", "data/flash.js", "data/kc/1-16.jpg", "data/kc/1-27.jpg", "data/kc/1-28.jpg", "data/kc/1-38.jpg", "data/kc/1-39.jpg", "data/kc/1-7.jpg", "data/kc/2-25.jpg", "data/kc/2-38.jpg", "data/kc/2-39.jpg", "data/kc/2-41.jpg", "data/kc/2-49.jpg", "data/kc/2-55.jpg", "data/kc/2-59.jpg", "data/kc/2-70.jpg", "data/kc/2-71.jpg", "data/kc/2-74.jpg", "data/kc/2-78.jpg", "data/plus.js", "fbconfig.js", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png", "index.html", "lib/fb-app.js", "lib/fb-auth.js", "lib/fb-store.js", "lib/sql-wasm-bin.js", "lib/sql-wasm.js", "manifest.webmanifest"];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('sqld-note-') && k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
