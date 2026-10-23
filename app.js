@@ -1186,6 +1186,12 @@ function fbErr(e) {
   if (/unauthorized-domain/.test(c)) return 'Firebase 승인된 도메인에 이 주소가 없어요';
   if (/network-request-failed|unavailable/.test(c)) return '인터넷 연결을 확인해 주세요';
   if (/permission-denied/.test(c)) return '데이터베이스 규칙 때문에 저장하지 못했어요';
+  if (/wrong-password|invalid-credential|user-not-found|invalid-login|invalid-email/.test(c)) return '이메일이나 비밀번호가 맞지 않아요';
+  if (/operation-not-allowed/.test(c)) return 'Firebase에서 이메일/비밀번호 로그인을 켜 주세요';
+  if (/weak-password/.test(c)) return '비밀번호는 6자 이상으로 해 주세요';
+  if (/requires-recent-login/.test(c)) return '로그아웃했다가 구글로 다시 로그인한 뒤 해 주세요';
+  if (/too-many-requests/.test(c)) return '시도가 너무 많아요. 잠시 뒤에 다시 해 주세요';
+  if (/credential-already-in-use|email-already-in-use/.test(c)) return '이미 다른 계정에서 쓰는 이메일이에요';
   return '로그인하지 못했어요' + (c ? ` (${c})` : '');
 }
 async function fbLoad() {
@@ -1250,14 +1256,47 @@ async function fbUser(u) {
 function fbSyncNow() { const r = fbRef(); if (r) fbSync(r).then(() => toast(SYNC.err || '동기화했어요')); }
 // 초기화: 서버 기록도 빈 기록으로 바꿈 (합치지 않음)
 function fbWipe() { const r = fbRef(); if (!r) return; clearTimeout(cloudTimer); r.set({ json: JSON.stringify(S), at: S.at, email: SYNC.user.email || '' }).catch(e => toast(fbErr(e))); }
+function isStandalone() { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } }
+function hasPw(u) { return !!(u && (u.providerData || []).some(p => p && p.providerId === 'password')); }
+async function fbPwLogin() {
+  const em = ($('#fbem') || {}).value || '', pw = ($('#fbpw') || {}).value || '';
+  if (!em.trim() || !pw) return toast('이메일과 비밀번호를 넣어 주세요');
+  try { await fbLoad(); await FB.auth.signInWithEmailAndPassword(em.trim(), pw); } catch (e) { toast(fbErr(e)); }
+}
+async function fbReset() {
+  const em = (($('#fbem') || {}).value || '').trim() || (SYNC.user && SYNC.user.email) || '';
+  if (!em) return toast('이메일을 먼저 넣어 주세요');
+  try { await fbLoad(); await FB.auth.sendPasswordResetEmail(em); toast('비밀번호 재설정 메일을 보냈어요'); } catch (e) { toast(fbErr(e)); }
+}
+async function fbSetPw() {
+  const pw = ($('#fbnp') || {}).value || '', u = FB && FB.auth.currentUser;
+  if (!u) return;
+  if (pw.length < 6) return toast('비밀번호는 6자 이상으로 해 주세요');
+  try {
+    if (hasPw(u)) await u.updatePassword(pw);
+    else await u.linkWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, pw));
+    try { await u.reload(); } catch (e) {}
+    SYNC.user = FB.auth.currentUser || u; toast('홈 화면 앱용 비밀번호를 저장했어요'); render();
+  } catch (e) { toast(fbErr(e)); }
+}
 function syncCard() {
   if (!fbOn()) return '';
-  const u = SYNC.user, hm = t => { const d = new Date(t); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
-  return `<div class="card"><b>구글 계정 연동</b>${u
-    ? `<div class="sub" style="margin:4px 0 10px">${esc(u.email || '')}로 로그인됨 · 풀 때마다 자동으로 저장돼요${SYNC.err ? `<br><span style="color:var(--bad)">${esc(SYNC.err)}</span>` : SYNC.at ? `<br>마지막 동기화 ${hm(SYNC.at)}` : ''}</div>
-    <div class="grid2"><button class="btn line" onclick="fbSyncNow()">지금 동기화</button><button class="btn line" onclick="fbLogout()">로그아웃</button></div>`
-    : `<div class="sub" style="margin:4px 0 10px">구글 계정으로 로그인하면 폰·태블릿·PC에서 같은 기록으로 이어서 풀 수 있어요. 지금 이 기기에 있는 기록도 합쳐져요.</div>
-    <button class="btn" onclick="fbLogin()">Google로 로그인</button>`}</div>`;
+  const u = SYNC.user, sa = isStandalone(), hm = t => { const d = new Date(t); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const pwForm = `<input id="fbem" type="email" autocomplete="username" placeholder="지메일 주소" style="margin-bottom:8px">
+    <input id="fbpw" type="password" autocomplete="current-password" placeholder="앱용 비밀번호" style="margin-bottom:10px">
+    <button class="btn" onclick="fbPwLogin()">로그인</button>
+    <button class="whytog" style="display:block;margin:6px auto 0" onclick="fbReset()">비밀번호를 잊었어요</button>`;
+  if (u) return `<div class="card"><b>구글 계정 연동</b>
+    <div class="sub" style="margin:4px 0 10px">${esc(u.email || '')}로 로그인됨 · 풀 때마다 자동으로 저장돼요${SYNC.err ? `<br><span style="color:var(--bad)">${esc(SYNC.err)}</span>` : SYNC.at ? `<br>마지막 동기화 ${hm(SYNC.at)}` : ''}</div>
+    <div class="grid2"><button class="btn line" onclick="fbSyncNow()">지금 동기화</button><button class="btn line" onclick="fbLogout()">로그아웃</button></div>
+    <details class="pwset" ${hasPw(u) || sa ? '' : 'open'} style="margin-top:14px"><summary class="sub">${hasPw(u) ? '홈 화면 앱용 비밀번호 바꾸기' : '홈 화면 앱용 비밀번호 만들기'}</summary>
+    <div class="sub" style="margin:6px 0 8px">${hasPw(u) ? `홈 화면 앱에서는 ${esc(u.email || '')} 주소와 이 비밀번호로 로그인해요.` : `홈 화면에 추가한 앱에서는 구글 로그인 창이 막혀요. 여기서 비밀번호를 만들어 두고, 그 앱에서는 ${esc(u.email || '')} 주소와 이 비밀번호로 로그인하세요.`}</div>
+    <input id="fbnp" type="password" autocomplete="new-password" placeholder="6자 이상" style="margin-bottom:8px"><button class="btn line" onclick="fbSetPw()">저장</button></details></div>`;
+  if (sa) return `<div class="card"><b>구글 계정 연동</b>
+    <div class="sub" style="margin:4px 0 10px">홈 화면 앱에서는 구글 로그인 창이 열리지 않아요. Safari에서 이 주소로 들어가 구글로 로그인하고, 설정에서 앱용 비밀번호를 만든 뒤 여기서 그 지메일 주소와 비밀번호로 로그인하세요.</div>${pwForm}</div>`;
+  return `<div class="card"><b>구글 계정 연동</b><div class="sub" style="margin:4px 0 10px">구글 계정으로 로그인하면 폰·태블릿·PC에서 같은 기록으로 이어서 풀 수 있어요. 지금 이 기기에 있는 기록도 합쳐져요.</div>
+    <button class="btn" onclick="fbLogin()">Google로 로그인</button>
+    <details style="margin-top:12px"><summary class="sub">앱용 비밀번호로 로그인</summary><div style="margin-top:8px">${pwForm}</div></details></div>`;
 }
 if (fbOn()) {
   try { if (localStorage.getItem('sqld_fb')) fbLoad().catch(() => {}); } catch (e) {}
