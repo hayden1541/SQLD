@@ -49,6 +49,82 @@ function markWrong(a) { a.st = 0; a.w = true; a.wr++; a.lv = 0; a.due = addDays(
 function dueIds() { const t = today(); return BANK.filter(q => { const a = S.att[q.id]; return a && a.w && rvDue(a) <= t; }).map(q => q.id); }
 function nextDue() { let m = null; BANK.forEach(q => { const a = S.att[q.id]; if (a && a.w) { const d = rvDue(a); if (!m || d < m) m = d; } }); return m; }
 function rvTag(a) { if (!a.w) return ''; const d = rvDue(a); return `복습 ${a.lv || 0}/3 · ${d <= today() ? '<b style="color:var(--pri)">오늘</b>' : md2(d)}`; }
+
+// ───────── 망각곡선(FSRS 간소화) ─────────
+// S: 기억 안정도(일) = 기억률이 90%로 떨어지기까지 걸리는 날 수, D: 난이도(1~10), lr: 마지막 복습일
+const FW = [0.4072, 1.1829, 3.1262, 15.4722, 7.2102, 0.5316, 1.0651, 0.0234, 1.616, 0.1544, 1.0824, 1.9813, 0.0953, 0.2975, 2.2042, 0.2407, 2.9466];
+const FF = 19 / 81, RD = 0.9;
+function dBetween(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
+function fR(t, s) { return Math.pow(1 + FF * Math.max(0, t) / s, -0.5); }
+function fInit(q, a) { // 예전 기록(망각곡선 정보 없음)을 풀이 이력으로 추정해 시작값을 만든다
+  if (a.S) return;
+  a.D = [0, 4, 5.5, 7, 8.5][q.d] || 5.5;
+  a.S = a.w ? 1 : a.st >= 2 ? 8 : a.c ? FW[2] : FW[0];
+  a.lr = a.last || today();
+}
+function fUpdate(qid, ok) {
+  const q = QMAP[qid], a = S.att[qid]; if (!q || !a) return;
+  const t0 = today();
+  if (!a.S) { // 처음 푸는 문제
+    a.D = Math.min(10, Math.max(1, ([0, 4, 5.5, 7, 8.5][q.d] || 5.5) + (ok ? 0 : 1)));
+    a.S = ok ? (S.conf[qid] ? FW[1] : FW[2]) : FW[0]; a.lr = t0; return;
+  }
+  const t = dBetween(a.lr || t0, t0), r = fR(t, a.S);
+  if (ok) {
+    if (t > 0) { // 같은 날 다시 맞힌 건 기억이 굳은 걸로 보지 않음
+      const h = S.conf[qid] ? FW[15] : 1;
+      a.S = Math.min(365, a.S * (1 + Math.exp(FW[8]) * (11 - a.D) * Math.pow(a.S, -FW[9]) * (Math.exp(FW[10] * (1 - r)) - 1) * h));
+    }
+    a.D = Math.max(1, a.D - 0.3);
+  } else {
+    const sf = FW[11] * Math.pow(a.D, -FW[12]) * (Math.pow(a.S + 1, FW[13]) - 1) * Math.exp(FW[14] * (1 - r));
+    a.S = Math.max(0.3, Math.min(a.S, sf)); a.D = Math.min(10, a.D + 1);
+  }
+  a.lr = t0;
+}
+function fNext(a) { return Math.max(1, Math.round(a.S / FF * (Math.pow(RD, -2) - 1))); } // 기억률 90%가 되는 날까지
+function memInfo() { // 푼 문제 기억률: 오늘 / 시험날
+  const t0 = today(), dx = Math.max(0, dday());
+  const L = [];
+  BANK.forEach(q => { const a = S.att[q.id]; if (!a) return; fInit(q, a); const t = dBetween(a.lr, t0); L.push({ id: q.id, t, r: fR(t, a.S), rx: fR(t + dx, a.S) }); });
+  const avg = k => L.length ? L.reduce((s, x) => s + x[k], 0) / L.length : 0;
+  return { L, now: avg('r'), exam: avg('rx'), dx };
+}
+function recIds(n) {
+  n = n || S.set.goal || 30;
+  const m = memInfo();
+  // 잊을 위험 점수: 지금 기억률이 낮을수록, 시험날 기억률이 낮을수록 높음
+  const due = m.L.filter(x => x.t > 0 && (x.r < RD || x.rx < 0.8)) // 오늘 이미 본 문제는 내일부터.map(x => ({ id: x.id, p: (1 - x.r) + 0.5 * (1 - x.rx) + (S.conf[x.id] ? 0.1 : 0) }));
+  due.sort((x, y) => y.p - x.p);
+  const ids = due.slice(0, n).map(x => x.id);
+  if (ids.length < n) { // 모자라면 약한 개념부터 안 푼 문제로 채움
+    const sc = c => { const s = conceptStat(c); return s.n ? (s.c + 1) / (s.n + 2) : 0.55; };
+    const un = shuffle(BANK.filter(q => !S.att[q.id])).sort((x, y) => sc(x.c) - sc(y.c));
+    un.slice(0, n - ids.length).forEach(q => ids.push(q.id));
+  }
+  return { ids, review: Math.min(due.length, n), fresh: ids.length - Math.min(due.length, n), dueAll: due.length };
+}
+function startRec() {
+  const r = recIds(); if (!r.ids.length) return toast('추천할 문제가 없어요');
+  INK.s = {}; QS = { ids: shuffle(r.ids), i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: '망각곡선 추천' }; go('quiz');
+}
+function recCard() {
+  const m = memInfo(), r = recIds();
+  const pc = x => Math.round(x * 100) + '%';
+  return `<div class="card reccard"><div class="top"><b>망각곡선 추천</b><span class="sub">오늘 ${r.ids.length}문제</span></div>
+  ${m.L.length ? `<div class="memrow"><div><b>${pc(m.now)}</b><span>지금 기억률(추정)</span></div><div><b class="${m.exam < 0.8 ? 'warn' : ''}">${pc(m.exam)}</b><span>시험날 예상${m.dx ? ` (D-${m.dx})` : ''}</span></div></div>` : ''}
+  <div class="sub" style="margin:6px 0 10px">${r.review ? `잊어 가는 문제 ${r.review}개` : '잊어 가는 문제는 아직 없어요'}${r.fresh ? ` + 약한 개념의 새 문제 ${r.fresh}개` : ''}${r.dueAll > r.review ? ` · 복습 대기 ${r.dueAll}개 중 급한 순` : ''}</div>
+  <button class="btn" onclick="startRec()">추천 문제 풀기</button>
+  <button class="whytog" style="display:block;margin:6px auto 0" onclick="recHelp()">어떻게 고르나요?</button></div>`;
+}
+function recHelp() {
+  sheet(`<b style="font-size:17px">망각곡선 추천은 이렇게 골라요</b>
+  <div class="more" style="margin-top:10px"><p>문제를 풀 때마다 그 문제를 얼마나 오래 기억할지(기억 안정도)를 계산해 둡니다. 맞히면 늘고, 틀리면 크게 줄고, '헷갈림'을 표시하면 덜 늘어요. 시간이 지나면 기억률이 망각곡선을 따라 떨어지는데, 오늘 기준 90% 아래로 내려갔거나 시험날까지 80% 아래로 떨어질 문제를 급한 순으로 고릅니다. 오늘 이미 푼 문제는 내일부터 추천에 들어가요.</p>
+  <p>복습할 문제가 하루 목표보다 적으면 정답률이 낮은 개념의 안 푼 문제로 채워요. 같은 날 다시 맞힌 건 기억이 굳은 걸로 치지 않습니다.</p>
+  <p style="color:var(--sub);font-size:13px">계산 방식은 Anki가 쓰는 FSRS 알고리즘을 간소화한 것이고, 기억률은 추정치예요. 오답노트의 1·3·7일 복습은 그대로 따로 돌아갑니다.</p></div>
+  <button class="btn line" style="margin-top:12px" onclick="closeSheet()">닫기</button>`);
+}
+
 function record(qid, ok) {
   const a = S.att[qid] || (S.att[qid] = { n: 0, c: 0, st: 0, w: false, wr: 0 });
   const due0 = rvDue(a); let msg = '';
@@ -63,6 +139,8 @@ function record(qid, ok) {
       } else msg = `복습일 전이라 단계는 그대로예요 · 다음 복습 ${md2(a.due)}`;
     }
   } else { const again = a.w || a.wr > 0; markWrong(a); msg = (again ? '복습 처음부터 · ' : '오답노트에 추가 · ') + '내일 다시 나와요'; }
+  fUpdate(qid, ok);
+  if (!msg && a.S) msg = `기억 유지 예상 ${fNext(a)}일 · 그쯤 추천 문제로 다시 나와요`;
   const d = S.days[today()] || (S.days[today()] = { n: 0, c: 0 });
   d.n++; if (ok) d.c++;
   save();
@@ -225,6 +303,7 @@ function home() {
     </div>
   </div>
   ${rvCard(0)}
+  ${recCard()}
   <div class="grid2">
     ${resumeInfo('practice') ? `<button class="btn" onclick="resumeQS('practice')">이어서 풀기 <span style="opacity:.8;font-weight:500">· ${resumeInfo('practice').left}문제 남음</span></button>` : `<button class="btn" onclick="quickStart()">새 문제 20개 풀기</button>`}
     <button class="btn ghost" onclick="go('mock')">실전 모의고사</button>
@@ -669,7 +748,7 @@ function submitMock(auto, force) {
   if (!auto && !force && Object.keys(MK_S.ans).length < 50) return ask(`안 푼 문제가 ${50 - Object.keys(MK_S.ans).length}개 있어요. 제출할까요?`, '제출', () => submitMock(false, true));
   clearInterval(timerId); timerId = null;
   let s1 = 0, s2 = 0; const wrongs = [];
-  MK_S.ids.forEach((id, i) => { const ok = MK_S.ans[id] === QMAP[id].a; if (MK_S.ans[id] != null) record(id, ok); else markWrong(S.att[id] || (S.att[id] = { n: 0, c: 0, st: 0, w: false, wr: 0 })); if (ok) { if (i < 10) s1 += 2; else s2 += 2; } else wrongs.push(id); });
+  MK_S.ids.forEach((id, i) => { const ok = MK_S.ans[id] === QMAP[id].a; if (MK_S.ans[id] != null) record(id, ok); else { markWrong(S.att[id] || (S.att[id] = { n: 0, c: 0, st: 0, w: false, wr: 0 })); fUpdate(id, false); } if (ok) { if (i < 10) s1 += 2; else s2 += 2; } else wrongs.push(id); });
   const total = s1 + s2, pass = total >= 60 && s1 >= 8 && s2 >= 32;
   const r = { date: today(), s1, s2, total, pass, wrongs, ids: MK_S.ids, ans: MK_S.ans };
   S.mocks.push({ date: r.date, s1, s2, total, pass, ids: MK_S.ids, ans: MK_S.ans }); save();
