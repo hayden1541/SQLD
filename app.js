@@ -23,7 +23,7 @@ const DEPT_ROWS = [[10,'ACCOUNTING','NEW YORK'],[20,'RESEARCH','DALLAS'],[30,'SA
 
 // ───────── 저장 ─────────
 const KEY = 'sqld_note_v1';
-function blank() { return { v: 1, att: {}, days: {}, conf: {}, cdone: {}, mocks: [], fl: {}, resume: {}, set: { goal: 30, exam: '2026-11-14' } }; }
+function blank() { return { v: 1, att: {}, days: {}, conf: {}, cdone: {}, mocks: [], fl: {}, resume: {}, cause: {}, set: { goal: 30, exam: '2026-11-14' } }; }
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
 if (!S && window.__NATIVE_STATE) S = window.__NATIVE_STATE;
@@ -62,17 +62,207 @@ function fInit(q, a) { // 예전 기록(망각곡선 정보 없음)을 풀이 �
   a.S = a.w ? 1 : a.st >= 2 ? 8 : a.c ? FW[2] : FW[0];
   a.lr = a.last || today();
 }
-function fUpdate(qid, ok) {
+
+// ───────── 확신도 · 오답 원인 ─────────
+const CONF_L = [['sure', '확실히 알았음'], ['meh', '애매했음'], ['guess', '찍어서 맞힘']];
+const CAUSE_L = [['concept', '개념을 몰라서'], ['slip', '계산·실수'], ['read', '문제를 잘못 읽음']];
+function setCf(qid, g) {
+  const a = S.att[qid]; if (!a) return;
+  const prev = a.cf || 'sure';
+  if (FSNAP[qid]) { const s = FSNAP[qid]; a.S = s.S; a.D = s.D; a.lr = s.lr; if (!s.S) { delete a.S; delete a.D; } }
+  if (g === 'sure') delete S.conf[qid]; else S.conf[qid] = 1;
+  fUpdate(qid, true, g);
+  if (prev === 'guess' && g !== 'guess') a.gc = Math.max(0, (a.gc || 0) - 1);
+  if (g === 'guess' && prev !== 'guess') a.gc = (a.gc || 0) + 1;
+  a.cf = g;
+  save(); render();
+}
+function setCause(qid, k) { if (S.cause[qid] === k) delete S.cause[qid]; else S.cause[qid] = k; save(); render(); }
+function fbRow(q, ok) {
+  if (ok) { const cur = (S.att[q.id] || {}).cf || ''; return `<div class="fb"><span class="sub">얼마나 확신했나요?</span><div class="rounds">${CONF_L.map(([k, l]) => `<button class="chip ${cur === k ? 'on' : ''}" onclick="setCf(${q.id},'${k}')">${l}</button>`).join('')}</div>${cur && cur !== 'sure' ? `<div class="sub" style="font-size:12px;margin-top:4px">${cur === 'guess' ? '찍어서 맞힌 건 모르는 문제로 치고 오답노트·추천에 다시 넣어요' : '애매한 문제는 오답노트에 넣고 조금 더 자주 추천해요'}</div>` : ''}</div>`; }
+  const cur = S.cause[q.id] || '';
+  return `<div class="fb"><span class="sub">왜 틀렸나요?</span><div class="rounds">${CAUSE_L.map(([k, l]) => `<button class="chip ${cur === k ? 'on' : ''}" onclick="setCause(${q.id},'${k}')">${l}</button>`).join('')}</div></div>`;
+}
+
+// ───────── 예상 점수 · 합격 가능성 ─────────
+// 기출변형(52~62회 복원) 문제의 개념 분포를 실제 시험 출제 비중으로 쓰고, 개념별 정답률로 점수를 시뮬레이션
+let EXW = null;
+function examWeights() {
+  if (EXW) return EXW;
+  const cnt = {}; let t1 = 0, t2 = 0;
+  BANK.forEach(q => { if (!q.src.startsWith('기출변형')) return; cnt[q.c] = (cnt[q.c] || 0) + 1; if (CMAP[q.c].s === 1) t1++; else t2++; });
+  EXW = CONCEPTS.map(c => ({ c: c.id, s: c.s, k: (cnt[c.id] || 0) / (c.s === 1 ? t1 : t2) * (c.s === 1 ? 10 : 40) })).filter(x => x.k > 0);
+  return EXW;
+}
+function conceptP(cid) {
+  let n = 0, c = 0, g = 0;
+  (BY_C[cid] || []).forEach(id => { const a = S.att[id]; if (a) { n += a.n; c += a.c; g += a.gc || 0; } });
+  c = Math.max(0, c - 0.5 * g); // 찍어서 맞힌 건 절반만 인정
+  return { n, p: (c + 1) / (n + 2) * (n ? 1 : 0.9) };
+}
+function predict(sims) {
+  const W = examWeights().map(x => Object.assign({}, x, conceptP(x.c)));
+  const exp1 = W.filter(x => x.s === 1).reduce((s, x) => s + x.k * x.p * 2, 0), exp2 = W.filter(x => x.s === 2).reduce((s, x) => s + x.k * x.p * 2, 0);
+  const cov = W.reduce((s, x) => s + (x.n >= 5 ? x.k : 0), 0) / 50;
+  // 문항 50개를 출제 비중대로 뽑아 푸는 시뮬레이션 → 합격(60점 이상, 과목별 40% 이상) 비율
+  let pass = 0; sims = sims || 3000;
+  const pick = (arr, tot) => { let r = Math.random() * tot; for (const x of arr) { r -= x.k; if (r <= 0) return x; } return arr[arr.length - 1]; };
+  const A1 = W.filter(x => x.s === 1), A2 = W.filter(x => x.s === 2);
+  for (let i = 0; i < sims; i++) {
+    let s1 = 0, s2 = 0;
+    for (let j = 0; j < 10; j++) if (Math.random() < pick(A1, 10).p) s1 += 2;
+    for (let j = 0; j < 40; j++) if (Math.random() < pick(A2, 40).p) s2 += 2;
+    if (s1 + s2 >= 60 && s1 >= 8 && s2 >= 32) pass++;
+  }
+  const gain = W.map(x => ({ c: x.c, g: x.k * (1 - x.p) * 2, n: x.n })).sort((x, y) => y.g - x.g);
+  return { s1: exp1, s2: exp2, tot: exp1 + exp2, pass: pass / sims, cov, gain };
+}
+function predCard(full) {
+  const p = predict(full ? 4000 : 1500), r = x => Math.round(x);
+  const low = p.cov < 0.5;
+  return `<div class="card predcard" ${full ? '' : `onclick="go('stats')" style="cursor:pointer"`}><div class="top"><b>예상 점수</b><span class="sub">${low ? '데이터가 적어 참고용' : `출제 비중 반영 · 근거 ${Math.round(p.cov * 100)}%`}</span></div>
+  <div class="predrow"><div><b class="${p.tot >= 60 ? 'ok' : 'bad'}">${r(p.tot)}점</b><span>예상 총점</span></div><div><b class="${p.pass >= 0.7 ? 'ok' : p.pass >= 0.4 ? '' : 'bad'}">${Math.round(p.pass * 100)}%</b><span>합격 가능성</span></div></div>
+  ${full ? `<div class="sub" style="margin:10px 0 4px">과목별 (과락 기준 40%)</div>
+  ${[['1과목 데이터 모델링', p.s1, 20, 8], ['2과목 SQL', p.s2, 80, 32]].map(([l, v, m, cut]) => `<div style="margin-top:8px"><div class="top"><span>${l}</span><span class="sub ${v < cut ? 'bad' : ''}">${r(v)} / ${m}점${v < cut ? ' · 과락 위험' : ''}</span></div><div class="bar ${v / m >= 0.6 ? 'high' : ''}"><i style="width:${Math.min(100, v / m * 100)}%"></i></div></div>`).join('')}
+  <div class="sub" style="margin:14px 0 6px">점수 올리기 좋은 개념 (출제 비중 × 틀릴 확률)</div>
+  <div class="list">${p.gain.slice(0, 5).map(x => `<div class="it" onclick="go('concept',{id:'${x.c}'})"><span>${esc(CMAP[x.c].name)}${x.n < 5 ? ' <span class="sub" style="font-size:12px">· 기록 부족</span>' : ''}</span><span class="sub">+${x.g.toFixed(1)}점</span></div>`).join('')}</div>
+  <div class="sub" style="font-size:12px;margin-top:10px">52~62회 기출변형의 개념 분포를 출제 비중으로 쓰고, 개념별 정답률(찍어서 맞힌 건 절반)로 50문항 시험을 수천 번 시뮬레이션한 값이에요.</div>` : `<div class="sub" style="font-size:12px;margin-top:6px">누르면 과목별 점수와 올리기 좋은 개념을 볼 수 있어요</div>`}</div>`;
+}
+
+// ───────── 학습 달력 ─────────
+function heatmap() {
+  const W = 15, end = new Date(today() + 'T00:00:00'), start = new Date(end); start.setDate(end.getDate() - end.getDay() - (W - 1) * 7);
+  const lv = n => !n ? 0 : n < 10 ? 1 : n < 30 ? 2 : n < 60 ? 3 : 4;
+  let cells = '', tot = 0, act = 0;
+  for (let w = 0; w < W; w++) { cells += '<div class="hmc">'; for (let d = 0; d < 7; d++) { const x = new Date(start); x.setDate(start.getDate() + w * 7 + d); const k = x.toISOString().slice(0, 10); const n = (S.days[k] || {}).n || 0; if (x > end) { cells += '<i class="fut"></i>'; continue; } tot += n; if (n) act++; cells += `<i class="l${lv(n)}" title="${k} · ${n}문제"></i>`; } cells += '</div>'; }
+  return `<div class="card"><div class="top"><b>학습 달력</b><span class="sub">최근 ${W}주 · ${act}일 · ${tot}문제</span></div><div class="hm">${cells}</div>
+  <div class="hml"><span class="sub">적음</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span class="sub">많음</span></div></div>`;
+}
+function causeCard() {
+  const v = Object.values(S.cause || {}); if (!v.length) return '';
+  const c = k => v.filter(x => x === k).length, tot = v.length, top = CAUSE_L.map(([k, l]) => [k, l, c(k)]).sort((x, y) => y[2] - x[2])[0];
+  const tip = { concept: '개념 화면을 먼저 보고 같은 개념 문제를 몰아서 푸는 게 효과가 커요.', slip: '계산 문제는 행마다 중간값을 적는 습관이 실수를 줄여요. 개념보다 풀이 순서를 점검하세요.', read: "'옳지 않은 것', '행 수', 'Oracle 기준' 같은 조건어에 표시하고 푸세요." }[top[0]];
+  return `<div class="card"><div class="top"><b>오답 원인</b><span class="sub">${tot}문제 기록</span></div>
+  ${CAUSE_L.map(([k, l]) => `<div style="margin-top:8px"><div class="top"><span>${l}</span><span class="sub">${c(k)}개 · ${Math.round(c(k) / tot * 100)}%</span></div><div class="bar"><i style="width:${c(k) / tot * 100}%"></i></div></div>`).join('')}
+  <div class="sub" style="margin-top:10px">가장 많은 원인: <b>${top[1]}</b>. ${tip}</div></div>`;
+}
+
+// ───────── 시험 직전 모드 ─────────
+function cram() {
+  const p = predict(800), order = p.gain.map(x => x.c);
+  const rest = CONCEPTS.map(c => c.id).filter(id => !order.includes(id));
+  const ids = [...order, ...rest];
+  const often = BANK.map(q => ({ q, a: S.att[q.id] })).filter(x => x.a && (x.a.wr || S.conf[x.q.id])).sort((x, y) => (y.a.wr || 0) - (x.a.wr || 0) || (S.conf[y.q.id] ? 1 : 0) - (S.conf[x.q.id] ? 1 : 0)).slice(0, 20);
+  return `<button class="icon-btn" onclick="go('home')">← 홈</button><h1>시험 직전 정리</h1>
+  <div class="sub" style="margin-bottom:12px">점수에 영향이 큰 개념부터 함정과 핵심만 모았어요. 30분 안에 훑을 수 있는 양이에요.</div>
+  ${often.length ? `<div class="card"><div class="top"><b>내가 자주 틀린 문제</b><span class="sub">${often.length}개</span></div>
+  <div class="list cramlist">${often.map(x => `<div class="it" onclick="peek(${x.q.id})"><span>${esc(x.q.q.slice(0, 40))}${x.q.q.length > 40 ? '…' : ''}</span><span class="sub">${x.a.wr ? x.a.wr + '번 틀림' : '헷갈림'}</span></div>`).join('')}</div>
+  <button class="btn" style="margin-top:10px" onclick="startPractice({ids:[${often.map(x => x.q.id).join(',')}],order:'seq',n:${often.length},title:'자주 틀린 문제'})">이 문제들 다시 풀기</button></div>` : ''}
+  <h2>개념별 함정 · 핵심</h2>
+  ${ids.map((id, i) => { const c = CMAP[id], g = p.gain.find(x => x.c === id); return `<details class="card cram" ${i < 5 ? 'open' : ''}><summary><b>${esc(c.name)}</b><span class="sub">${c.s}과목${g ? ` · +${g.g.toFixed(1)}점 여지` : ''}</span></summary>
+    ${(c.trap || []).length ? `<div class="trap"><b>함정</b><ul>${c.trap.map(t => `<li>${md(t)}</li>`).join('')}</ul></div>` : ''}
+    <ul class="sum">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
+    <button class="chip c" onclick="go('concept',{id:'${id}'})">개념 전체 보기</button></details>`; }).join('')}`;
+}
+
+// ───────── SQL 실습장 (브라우저 안 SQLite) ─────────
+let LAB = { db: null, sql: '', out: '', loading: false };
+const LAB_EX = [
+  ['부서별 급여 합계', 'SELECT DEPTNO, COUNT(*) AS 인원, SUM(SAL) AS 합계\nFROM EMP\nGROUP BY DEPTNO\nORDER BY DEPTNO;'],
+  ['OUTER JOIN', 'SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO) AS 인원\nFROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO\nGROUP BY D.DEPTNO, D.DNAME;'],
+  ['NOT IN과 NULL', '-- MGR에 NULL(KING)이 섞여 있어 0건\nSELECT COUNT(*) FROM EMP\nWHERE EMPNO NOT IN (SELECT MGR FROM EMP);'],
+  ['순위 함수', 'SELECT ENAME, SAL,\n  RANK() OVER (ORDER BY SAL DESC) AS RK,\n  DENSE_RANK() OVER (ORDER BY SAL DESC) AS DR,\n  ROW_NUMBER() OVER (ORDER BY SAL DESC) AS RN\nFROM EMP;'],
+  ['누적 합계(RANGE)', 'SELECT ENAME, SAL,\n  SUM(SAL) OVER (ORDER BY SAL) AS 누적\nFROM EMP WHERE DEPTNO = 30;'],
+  ['LAG · LEAD', 'SELECT ENAME, HIREDATE, SAL,\n  LAG(SAL) OVER (ORDER BY HIREDATE) AS 이전,\n  LEAD(SAL, 1, 0) OVER (ORDER BY HIREDATE) AS 다음\nFROM EMP WHERE DEPTNO = 20;'],
+  ['CASE · NVL', "SELECT ENAME, SAL, NVL(COMM, 0) AS COMM,\n  CASE WHEN SAL >= 3000 THEN 'H' WHEN SAL >= 1500 THEN 'M' ELSE 'L' END AS 등급\nFROM EMP;"],
+  ['상관 서브쿼리', 'SELECT ENAME, DEPTNO, SAL FROM EMP E\nWHERE SAL > (SELECT AVG(SAL) FROM EMP WHERE DEPTNO = E.DEPTNO);'],
+];
+const LAB_NO = [[/CONNECT\s+BY|START\s+WITH/i, '계층형 질의(CONNECT BY)'], [/\bPIVOT\b/i, 'PIVOT'], [/\(\+\)/, 'Oracle (+) 조인'], [/\bROWNUM\b/i, 'ROWNUM'], [/\bROLLUP\b|\bCUBE\b|GROUPING/i, 'ROLLUP·CUBE·GROUPING'], [/\bMERGE\s+INTO\b/i, 'MERGE'], [/RATIO_TO_REPORT/i, 'RATIO_TO_REPORT'], [/REGEXP_/i, '정규식 함수'], [/\bSYSDATE\b|TO_CHAR|TO_DATE|ADD_MONTHS/i, '날짜 함수'], [/[<>=]\s*(ANY|ALL|SOME)\s*\(/i, 'ANY·ALL 비교'], [/WITH\s+TIES|\bTOP\s*\(?\d/i, 'WITH TIES·TOP'], [/\b(MAX|MIN|SUM|AVG|COUNT)\s*\(\s*(MAX|MIN|SUM|AVG|COUNT)\s*\(/i, '집계함수 중첩'], [/\b(GRANT|REVOKE)\b/i, 'GRANT·REVOKE']];
+function labOk(sql) { return LAB_NO.filter(([r]) => r.test(sql)).map(x => x[1]); }
+function loadScript(src) { return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+async function labInit() {
+  if (LAB.db || LAB.loading) return; LAB.loading = true; render();
+  try {
+    if (!window.initSqlJs) { await loadScript('lib/sql-wasm.js'); await loadScript('lib/sql-wasm-bin.js'); }
+    const bin = Uint8Array.from(atob(window.SQLWASM_B64), c => c.charCodeAt(0));
+    const SQL = await initSqlJs({ wasmBinary: bin });
+    LAB.SQL = SQL; labReset(true);
+  } catch (e) { LAB.out = `<div class="exp no">실습장을 불러오지 못했어요: ${esc(String(e))}</div>`; }
+  LAB.loading = false; render();
+}
+function labReset(silent) {
+  const db = new LAB.SQL.Database();
+  db.run(`CREATE TABLE DEPT (DEPTNO INTEGER PRIMARY KEY, DNAME TEXT, LOC TEXT);
+  INSERT INTO DEPT VALUES (10,'ACCOUNTING','NEW YORK'),(20,'RESEARCH','DALLAS'),(30,'SALES','CHICAGO'),(40,'OPERATIONS','BOSTON');
+  CREATE TABLE EMP (EMPNO INTEGER PRIMARY KEY, ENAME TEXT, JOB TEXT, MGR INTEGER, HIREDATE TEXT, SAL REAL, COMM REAL, DEPTNO INTEGER REFERENCES DEPT(DEPTNO));
+  CREATE TABLE DUAL (DUMMY TEXT); INSERT INTO DUAL VALUES ('X');`);
+  const st = db.prepare('INSERT INTO EMP VALUES (?,?,?,?,?,?,?,?)');
+  EMP_ROWS.forEach(r => st.run(r.map(x => x === undefined ? null : x))); st.free();
+  // Oracle 함수 흉내
+  db.create_function('NVL', (x, y) => x == null ? y : x);
+  db.create_function('NVL2', (x, y, z) => x == null ? z : y);
+  for (let n = 3; n <= 13; n++) db.create_function('DECODE', new Function(...Array.from({ length: n }, (_, i) => 'a' + i), `const a=[${Array.from({ length: n }, (_, i) => 'a' + i).join(',')}];for(let i=1;i+1<a.length;i+=2){if(a[0]===a[i]||(a[0]==null&&a[i]==null))return a[i+1];}return a.length%2===0?a[a.length-1]:null;`));
+  db.create_function('TRUNC', (x, d) => { if (x == null) return null; const m = Math.pow(10, d || 0); return Math.trunc(x * m) / m; });
+  db.create_function('CEIL', x => x == null ? null : Math.ceil(x)); db.create_function('FLOOR', x => x == null ? null : Math.floor(x));
+  db.create_function('MOD', (x, y) => x == null || y == null ? null : y === 0 ? x : x % y);
+  db.create_function('POWER', (x, y) => x == null || y == null ? null : Math.pow(x, y)); db.create_function('SIGN', x => x == null ? null : Math.sign(x));
+  db.create_function('LPAD', (s, n, p) => s == null ? null : String(s).padStart(n, p == null ? ' ' : p).slice(0, n));
+  db.create_function('RPAD', (s, n, p) => s == null ? null : String(s).padEnd(n, p == null ? ' ' : p).slice(0, n));
+  db.create_function('INITCAP', s => s == null ? null : String(s).toLowerCase().replace(/(^|[^a-z])([a-z])/g, (m, a, b) => a + b.toUpperCase()));
+  if (LAB.db) LAB.db.close(); LAB.db = db;
+  if (!silent) { LAB.out = '<div class="sub">EMP·DEPT를 처음 상태로 되돌렸어요.</div>'; render(); }
+}
+function labFix(sql) { return sql.replace(/\bDATE\s+('\d{4}-\d{2}-\d{2}')/gi, '$1').replace(/\bMINUS\b/gi, 'EXCEPT').replace(/FETCH\s+(FIRST|NEXT)\s+(\d+)\s+ROWS?\s+ONLY/gi, 'LIMIT $2').replace(/OFFSET\s+(\d+)\s+ROWS?\s+LIMIT\s+(\d+)/gi, 'LIMIT $2 OFFSET $1'); }
+function labRun() {
+  const ta = $('#labsql'); LAB.sql = ta ? ta.value : LAB.sql;
+  const no = labOk(LAB.sql);
+  if (no.length) { LAB.out = `<div class="exp no">실습장(SQLite)에서 지원하지 않는 문법이 있어요: <b>${no.join(', ')}</b><br>이 문법은 문제 해설과 개념 화면으로 공부해 주세요.</div>`; render(); return; }
+  try {
+    const t0 = performance.now(), res = LAB.db.exec(labFix(LAB.sql)), ms = Math.round(performance.now() - t0), ch = LAB.db.getRowsModified();
+    LAB.out = res.length ? res.map(r => `<div class="qt-t" style="overflow-x:auto"><table class="t qt-tb"><tr>${r.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${r.values.slice(0, 200).map(v => '<tr>' + v.map(x => `<td>${x == null ? '<span class="muted">NULL</span>' : esc(String(typeof x === 'number' && !Number.isInteger(x) ? +x.toFixed(4) : x))}</td>`).join('') + '</tr>').join('')}</table><div class="sub" style="font-size:12px;margin-top:4px">${r.values.length}행${r.values.length > 200 ? ' (200행까지 표시)' : ''} · ${ms}ms</div></div>`).join('')
+      : `<div class="sub">실행했어요${ch ? ` · ${ch}행 변경` : ''}. 결과 행이 없어요.</div>`;
+  } catch (e) { LAB.out = `<div class="exp no">오류: ${esc(String(e.message || e))}</div>`; }
+  render();
+}
+function openLab(sql, from) { LAB.sql = sql || LAB.sql || LAB_EX[0][1]; LAB.out = ''; LAB.from = from || null; go('lab'); }
+function labBack() { if (LAB.from === 'quiz' && QS) { go0('quiz'); } else go('concepts'); }
+function lab() {
+  if (!LAB.db) setTimeout(labInit, 0);
+  return `<div class="top"><button class="icon-btn" onclick="labBack()">← ${LAB.from === 'quiz' ? '문제로' : '개념'}</button><button class="icon-btn" onclick="showTables()">EMP</button></div>
+  <h1>SQL 실습장</h1>
+  <div class="sub" style="margin-bottom:8px">EMP·DEPT 테이블에 직접 쿼리를 실행해 봐요. 앱 안의 SQLite로 돌아가서 인터넷 없이도 돼요.</div>
+  <details class="card labnote"><summary><b>Oracle과 다른 점</b> <span class="sub">꼭 읽어 주세요</span></summary><ul class="sum">
+  <li>숫자를 직접 적어 정수끼리 나누면 몫만 나옴 (7 / 2 = 3, 7.0 / 2 = 3.5). SAL·COMM 컬럼 계산은 Oracle과 같게 맞춰 둠</li><li>ORDER BY 오름차순에서 NULL이 맨 앞 (Oracle은 맨 뒤)</li><li>빈 문자열 ''이 NULL이 아님</li>
+  <li>CONNECT BY, PIVOT, (+), ROWNUM, ROLLUP·CUBE, MERGE는 지원 안 함 · MINUS는 EXCEPT로, FETCH FIRST는 LIMIT으로 바꿔서 실행</li><li>NVL·NVL2·DECODE·TRUNC·MOD·LPAD 등은 Oracle처럼 동작하게 맞춰 둠</li></ul></details>
+  <div class="rounds" style="margin:8px 0">${LAB_EX.map(([l], i) => `<button class="chip" onclick="LAB.sql=LAB_EX[${i}][1];LAB.out='';render()">${l}</button>`).join('')}</div>
+  <textarea id="labsql" class="labsql" spellcheck="false" autocapitalize="off" autocomplete="off" rows="7">${esc(LAB.sql || LAB_EX[0][1])}</textarea>
+  <div class="grid2" style="margin-top:8px"><button class="btn line" onclick="labReset()" ${LAB.db ? '' : 'disabled'}>데이터 초기화</button><button class="btn" onclick="labRun()" ${LAB.db ? '' : 'disabled'}>${LAB.loading || !LAB.db ? '불러오는 중…' : '실행 ▶'}</button></div>
+  <div class="labout" style="margin-top:12px">${LAB.out}</div>`;
+}
+function labable(q) {
+  const c = (q.code || []).filter(x => typeof x === 'string').join('\n');
+  if (!(q.t || []).some(t => t === 'EMP' || t === 'DEPT') || !/\bSELECT\b/i.test(c) || labOk(c).length) return false;
+  if (/㉠|\(\s*\?\s*\)|^\s*(\(가\)|ㄱ\.|\[)|__|\s\/\s/m.test(c) || LAB_SKIP.includes(q.id)) return false;
+  const tb = [...c.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+([A-Z_][A-Z0-9_]*)/gi)].map(m => m[1].toUpperCase());
+  return tb.every(t => ['EMP', 'DEPT', 'DUAL'].includes(t));
+}
+const LAB_SKIP = [];
+function labSqlOf(q) { return (q.code || []).filter(x => typeof x === 'string').join('\n').trim(); }
+
+const FSNAP = {};
+function fUpdate(qid, ok, g) {
   const q = QMAP[qid], a = S.att[qid]; if (!q || !a) return;
+  FSNAP[qid] = { S: a.S, D: a.D, lr: a.lr };
+  if (ok && g === 'guess') ok = false;
   const t0 = today();
   if (!a.S) { // 처음 푸는 문제
     a.D = Math.min(10, Math.max(1, ([0, 4, 5.5, 7, 8.5][q.d] || 5.5) + (ok ? 0 : 1)));
-    a.S = ok ? (S.conf[qid] ? FW[1] : FW[2]) : FW[0]; a.lr = t0; return;
+    a.S = ok ? ((g ? g === 'meh' : S.conf[qid]) ? FW[1] : FW[2]) : FW[0]; a.lr = t0; return;
   }
   const t = dBetween(a.lr || t0, t0), r = fR(t, a.S);
   if (ok) {
     if (t > 0) { // 같은 날 다시 맞힌 건 기억이 굳은 걸로 보지 않음
-      const h = S.conf[qid] ? FW[15] : 1;
+      const h = g === 'meh' || (!g && S.conf[qid]) ? FW[15] : 1;
       a.S = Math.min(365, a.S * (1 + Math.exp(FW[8]) * (11 - a.D) * Math.pow(a.S, -FW[9]) * (Math.exp(FW[10] * (1 - r)) - 1) * h));
     }
     a.D = Math.max(1, a.D - 0.3);
@@ -273,15 +463,16 @@ function backTo() { const f = QFROM || {}; if (!f.v || f.v === 'quiz' || f.v ===
 function go(v, p) { if (v === 'quiz' && view !== 'quiz' && view !== 'result') QFROM = { v: view, p: P }; go0(v, p); }
 function go0(v, p) { if (timerId && v !== 'mockrun') { clearInterval(timerId); timerId = null; } if (v === 'quiz') snapQS(); view = v; P = p || {}; render(); window.scrollTo(0, 0); }
 function renderTabs() {
-  const hide = view === 'quiz' || view === 'mockrun';
+  const hide = view === 'quiz' || view === 'mockrun' || view === 'lab';
   $('#tabbar').style.display = hide ? 'none' : 'flex';
   document.body.style.paddingBottom = hide ? 'env(safe-area-inset-bottom)' : '';
-  const root = { home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
+  const root = { home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats', cram: 'home', lab: 'concepts' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
   $('#tabbar').innerHTML = TABS.map(([k, l, ic]) => `<button class="${root === k ? 'on' : ''}" onclick="go('${k}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}</button>`).join('');
 }
 function render() {
   renderTabs();
-  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings }[view];
+  if (!S.cause) S.cause = {};
+  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
   inkMount();
 }
@@ -304,6 +495,7 @@ function home() {
   </div>
   ${rvCard(0)}
   ${recCard()}
+  ${predCard(false)}
   <div class="grid2">
     ${resumeInfo('practice') ? `<button class="btn" onclick="resumeQS('practice')">이어서 풀기 <span style="opacity:.8;font-weight:500">· ${resumeInfo('practice').left}문제 남음</span></button>` : `<button class="btn" onclick="quickStart()">새 문제 20개 풀기</button>`}
     <button class="btn ghost" onclick="go('mock')">실전 모의고사</button>
@@ -311,6 +503,10 @@ function home() {
   <div class="grid2" style="margin-top:10px">
     ${resumeInfo('wrong') ? `<button class="btn line" onclick="resumeQS('wrong')">오답 이어서 풀기 · ${resumeInfo('wrong').left}</button>` : `<button class="btn line" onclick="startWrong()" ${wn ? '' : 'disabled'}>오답 다시 풀기</button>`}
     <button class="btn line" onclick="go('flash')">플래시카드</button>
+  </div>
+  <div class="grid2" style="margin-top:10px">
+    <button class="btn line" onclick="go('cram')">시험 직전 정리</button>
+    <button class="btn line" onclick="openLab()">SQL 실습장</button>
   </div>
   ${(() => { const un = BANK.filter(q => !S.att[q.id]); const g = k => un.filter(q => GRP(q) === k).length;
     return `<div class="card"><div class="top"><b>안 푼 문제 ${un.length}개</b><span class="sub">전체 ${BANK.length}개 중</span></div>
@@ -379,7 +575,7 @@ function poolFor(o) {
 }
 function startPractice(o) {
   o = Object.assign({ s: 0, d: [1, 2, 3, 4], n: 20, order: 'new', cs: [] }, o);
-  let pool = poolFor(o);
+  let pool = o.ids ? o.ids.map(id => QMAP[id]).filter(Boolean) : poolFor(o);
   if (o.order === 'seq') pool = pool.slice();
   else if (o.order === 'new') pool = [...shuffle(pool.filter(q => !S.att[q.id])), ...shuffle(pool.filter(q => S.att[q.id]))];
   else if (o.order === 'weak') { const sc = id => { const s = conceptStat(QMAP[id].c); return s.n ? (s.c + 1) / (s.n + 2) : 0.5; }; pool = shuffle(pool).sort((a, b) => sc(a.id) - sc(b.id)); }
@@ -417,9 +613,10 @@ function quiz() {
   ${sh && q.w ? whyTog() : ''}
   ${sh ? `<div class="exp ${ok ? 'ok' : 'no'}"><b>${ok ? '정답' : '오답 · 정답 ' + MK[q.a]}</b><br>${md(q.e)}</div>
     ${QS.rv && QS.rv[q.id] ? `<div class="rvnote">${esc(QS.rv[q.id])}</div>` : ''}
+    ${QS.mode !== 'mockview' ? fbRow(q, ok) : ''}
     ${plusH(q)}
     <div class="row" style="flex-wrap:wrap"><button class="chip c" onclick="showConcept('${c.id}')">개념 보기: ${esc(c.name)}</button>
-    <button class="chip ${S.conf[q.id] ? 'on' : ''}" onclick="togConf(${q.id})">${S.conf[q.id] ? '헷갈림 표시됨' : '헷갈림 표시'}</button></div>
+    ${labable(q) ? `<button class="chip c" onclick="openLab(labSqlOf(QMAP[${q.id}]),'quiz')">SQL 실행해 보기</button>` : ''}</div>
     <div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="nextQ()">${QS.i + 1 < QS.ids.length ? '다음 문제 ›' : '결과 보기'}</button></div>`
   : `<div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="check()" ${QS.pick == null ? 'disabled' : ''}>${S.set.instant ? '보기를 누르면 바로 채점' : '정답 확인'}</button></div>`}
   </div></div><canvas class="ink" id="ink"></canvas></div>
@@ -651,6 +848,7 @@ function concepts() {
   const done = Object.keys(S.cdone).length;
   const units = [...new Set(CONCEPTS.map(c => c.s + '|' + c.unit))];
   return `<h1>개념 학습</h1><div class="sub">${CONCEPTS.length}개 개념 중 ${done}개 학습 완료</div>
+  <div class="grid2" style="margin:12px 0 4px"><button class="btn line" onclick="openLab()">SQL 실습장</button><button class="btn line" onclick="go('cram')">시험 직전 정리</button></div>
   <div class="ugrid">${units.map(u => { const [s, name] = u.split('|'); return `<section><h2>${s}과목 · ${esc(name)}</h2><div class="card list">${CONCEPTS.filter(c => c.s == s && c.unit === name).map(c => { const st = conceptStat(c.id);
     return `<div class="it" onclick="go('concept',{id:'${c.id}'})"><span>${S.cdone[c.id] ? '✓ ' : ''}${esc(c.name)}</span><span class="sub">${st.n ? pct(st.acc) : ''} ${st.total}문항</span></div>`; }).join('')}</div></section>`; }).join('')}</div>`;
 }
@@ -695,11 +893,14 @@ function stats() {
   if (STAB === 'weak') { few = list.filter(x => x.s.n && x.s.n < 3).sort(weakCmp); list = list.filter(x => x.s.n >= 3).sort(weakCmp); }
   else if (STAB === 'none') list = list.filter(x => !x.s.solved);
   return `<h1>분석</h1>
+  ${predCard(true)}
   <div class="grid2"><div class="card stat"><b>${pct(s1.acc)}</b><span>1과목 정답률 · ${s1.solved}/${s1.total}</span></div><div class="card stat"><b>${pct(s2.acc)}</b><span>2과목 정답률 · ${s2.solved}/${s2.total}</span></div></div>
   <div class="card"><b>난이도별</b>${ds.map((x, i) => `<div style="margin-top:10px"><div class="top"><span>${DLABEL[i + 1]}</span><span class="sub">${pct(x.acc)} · ${x.solved}/${x.total}</span></div><div class="bar ${lvl(x.acc)}"><i style="width:${(x.acc || 0) * 100}%"></i></div></div>`).join('')}</div>
   <div class="card"><b>최근 14일</b>${days.length ? `<div style="display:flex;align-items:flex-end;gap:4px;height:90px;margin-top:10px">${days.map(k => `<div style="flex:1;text-align:center"><div style="height:${S.days[k].n / maxN * 70}px;background:var(--pri);border-radius:4px 4px 0 0;opacity:${0.4 + 0.6 * S.days[k].c / S.days[k].n}"></div><div class="sub" style="font-size:9px">${k.slice(8)}</div></div>`).join('')}</div>` : '<div class="sub">아직 기록이 없어요</div>'}</div>
   ${S.mocks.length ? `<div class="card"><b>모의고사 기록</b><div class="list">${S.mocks.map((m, i) => [m, i]).slice(-5).reverse().map(([m, i]) => `<div class="it" ${m.ids ? `onclick="go('mockresult',Object.assign({past:1},S.mocks[${i}]))"` : ''}><span>${m.date}</span><span>${m.total}점 <span class="sub">(${m.s1}/${m.s2})</span> ${m.pass ? '합격' : '불합격'}${m.ids ? ' ›' : ''}</span></div>`).join('')}</div>
   ${(() => { const mw = mockWeak(); return mw.length ? `<div class="sub" style="margin-top:12px">모의고사에서 자주 틀린 개념</div><div class="rounds" style="margin-top:6px">${mw.map(([c, n]) => `<button class="chip" onclick="go('concept',{id:'${c}'})">${esc(CMAP[c].name)} ${n}</button>`).join('')}</div>` : ''; })()}</div>` : ''}
+  ${heatmap()}
+  ${causeCard()}
   <h2>개념별</h2>
   <div class="seg">${[['weak', '약한 순'], ['all', '전체'], ['none', '안 푼 개념']].map(([v, l]) => `<button class="${STAB === v ? 'on' : ''}" onclick="STAB='${v}';render()">${l}</button>`).join('')}</div>
   ${list.length ? `<div class="cgrid">${list.map(x => conceptRow(x.c, x.s)).join('')}</div>` : `<div class="card sub">${STAB === 'weak' && few.length ? '3번 이상 푼 개념이 아직 없어요' : '해당하는 개념이 없어요'}</div>`}
