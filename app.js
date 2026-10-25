@@ -994,7 +994,7 @@ function conceptBody(c, inSheet) {
   ${moreHTML(c)}
   ${c.trap ? `<div class="trap" data-hk="c_${c.id}:t"><b>함정</b><br>${c.trap.map(md).join('<br>')}</div>` : ''}
   ${inSheet ? '' : `<div class="grid2" style="margin-top:14px">
-    <button class="btn" onclick="startPractice({cs:['${c.id}'],n:${Math.min(20, st.total)},order:'new',title:'${esc(c.name)}'})">이 개념 문제 풀기</button>
+    <button class="btn" onclick="startPractice({cs:['${c.id}'],n:${st.total},order:'new',title:'${esc(c.name)}'})">이 개념 문제 ${st.total}개 풀기</button>
     <button class="btn ${S.cdone[c.id] ? 'line' : 'ghost'}" onclick="togDone('${c.id}')">${S.cdone[c.id] ? '학습 완료 취소' : '학습 완료'}</button></div>
     <div class="grid2" style="margin-top:10px">${[1, 2, 3, 4].map(d => { const n = (BY_C[c.id] || []).filter(id => QMAP[id].d === d).length; return `<button class="btn line" ${n ? '' : 'disabled'} onclick="startPractice({cs:['${c.id}'],d:[${d}],n:${n},title:'${esc(c.name)}'})">${DLABEL[d]} ${n}</button>`; }).join('')}</div>${(() => { const un = (BY_C[c.id] || []).filter(id => !S.att[id]).length; return un ? `<button class="btn ghost" style="margin-top:8px" onclick="startPractice({cs:['${c.id}'],un:1,n:${un},order:'rand',title:'${esc(c.name)} · 안 푼 문제'})">이 개념에서 안 푼 문제 ${un}개</button>` : ''; })()}`}`;
 }
