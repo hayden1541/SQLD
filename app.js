@@ -1,6 +1,7 @@
 'use strict';
 var HL_C = [['y', '노랑'], ['g', '초록'], ['b', '파랑'], ['p', '분홍']];
 var HL = { pend: null, touch: 0, t: null };
+var HS = { st: null, on: false, root: null, a0: 0, a1: 0, b: 0, t: null };
 var SYNC = { user: null, at: 0, busy: false, err: '' };
 var FB = null;
 // ───────── 데이터 ─────────
@@ -791,6 +792,14 @@ function tblBlock(q, always) {
 
 // ───────── 필기 ─────────
 const INK = { on: false, col: '#e5484d', er: false, s: {}, pen: false };
+try { if (localStorage.getItem('sqld_pen') === '1') INK.pen = true; } catch (e) {}
+function penMode(on) { INK.pen = on; try { localStorage.setItem('sqld_pen', on ? '1' : '0'); } catch (e) {} }
+let inkFl = 0;
+function inkFling(v) { // 손을 뗀 뒤에도 조금 더 미끄러지듯 스크롤
+  const id = ++inkFl; let t = performance.now();
+  const step = n => { if (id !== inkFl) return; const dt = Math.min(40, n - t); t = n; window.scrollBy(0, v * dt); v *= Math.pow(0.995, dt); if (Math.abs(v) > 0.03) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
 const INK_COLS = ['#e5484d', '#2f6fde', '#1f9d55'];
 function inkBar() {
   if (!INK.on) return `<button class="inkbtn" onclick="inkToggle()">✎ 필기</button>`;
@@ -868,11 +877,12 @@ function inkMount() {
   cv.onpointerdown = e => {
     if (!INK.on) return;
     e.preventDefault();
-    if (e.pointerType === 'pen') { INK.pen = true; pan = null; penAt = Date.now(); if (cur && cur.t !== 'pen') dropCur(); }
+    inkFl++;
+    if (e.pointerType === 'pen') { if (!INK.pen) { let off = false; try { off = localStorage.getItem('sqld_pen') === '0'; } catch (_) {} if (!off) penMode(true); } pan = null; penAt = Date.now(); if (cur && cur.t !== 'pen') dropCur(); }
     else if (e.pointerType === 'touch') {
       tch.add(e.pointerId);
       if (tch.size >= 2) { if (cur && cur.t === 'touch') dropCur(); if (!cur && Date.now() - penAt > 600) startPan(e); return; } // 두 손가락: 스크롤
-      if (INK.pen) return; // 펜슬을 쓰고 있으면 한 손가락·손바닥 터치는 무시
+      if (INK.pen) { if (!cur && !pan && Date.now() - penAt > 400) startPan(e); return; } // 펜 모드: 한 손가락은 스크롤, 펜으로 쓰는 중 손바닥은 무시
     }
     if (cur) return;
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
@@ -882,7 +892,7 @@ function inkMount() {
   cv.onpointermove = e => {
     if (e.pointerType === 'pen') penAt = Date.now();
     if (pan && e.pointerId === pan.id) { e.preventDefault(); const dy = e.clientY - pan.y;
-      if (pan.go || Math.abs(dy) > 14) { pan.go = true; window.scrollBy(0, -dy); pan.y = e.clientY; } return; }
+      if (pan.go || Math.abs(dy) > 14) { pan.go = true; window.scrollBy(0, -dy); const tn = performance.now(); pan.v = -dy / Math.max(8, tn - (pan.t || tn - 16)); pan.t = tn; pan.y = e.clientY; } return; }
     if (!cur || e.pointerId !== cur.id) return; e.preventDefault();
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; (evs.length ? evs : [e]).forEach(ev => { const q = pt(ev); cur.p.push([q[0] - cur.o[0], q[1] - cur.o[1]]); });
     if (cur.ln) { snapEnd(cur); inkDraw(); return; }
@@ -890,7 +900,7 @@ function inkMount() {
     const ctx = cv.getContext('2d'), k = inkScale(cv); ctx.setTransform(k, 0, 0, k, 0, 0);
     inkStroke(ctx, { c: cur.c, e: cur.e, p: cur.p.slice(-evs.length - 1) }, cur.o);
   };
-  cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); if (pan && e.pointerId === pan.id) pan = null; if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; cur = null; } };
+  cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); if (pan && e.pointerId === pan.id) { if (pan.go && pan.t && performance.now() - pan.t < 80) inkFling(pan.v || 0); pan = null; } if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; cur = null; } };
 }
 // 필기 중에는 필기 도구 말고는 아무것도 눌리지 않게 (보기·버튼·상단 버튼 포함)
 window.addEventListener('click', e => {
@@ -1146,7 +1156,8 @@ function settings() {
   <b style="display:block;margin-top:12px">하루 목표 문항 수</b><input type="number" min="5" max="200" value="${S.set.goal}" onchange="S.set.goal=Math.max(5,+this.value||30);save()"></div>
   <div class="card"><b>문제 풀이</b>
   <label class="setrow"><input type="checkbox" ${S.set.instant ? 'checked' : ''} onchange="S.set.instant=this.checked;save()"> 보기를 누르면 바로 채점 <span class="sub">(정답 확인 버튼 생략)</span></label>
-  <label class="setrow"><input type="checkbox" ${S.set.whyFold ? '' : 'checked'} onchange="S.set.whyFold=!this.checked;save()"> 채점 후 보기별 오답 이유 모두 펼치기</label></div>
+  <label class="setrow"><input type="checkbox" ${S.set.whyFold ? '' : 'checked'} onchange="S.set.whyFold=!this.checked;save()"> 채점 후 보기별 오답 이유 모두 펼치기</label>
+  <label class="setrow"><input type="checkbox" ${INK.pen ? 'checked' : ''} onchange="penMode(this.checked)"> 펜 필기 모드 <span class="sub">필기는 애플펜슬로만, 손가락은 스크롤만. 펜으로 쓰면 자동으로 켜져요</span></label></div>
   ${/^https?:/.test(location.protocol) ? `<div class="card"><b>앱 업데이트</b><div class="sub" style="margin:4px 0 10px">홈 화면에 추가해 쓰면 새로고침 버튼이 없어요. 새 내용이 안 보이면 눌러 주세요. 풀이 기록은 그대로 남아요.</div>
   <button class="btn line" onclick="hardRefresh()">최신 버전으로 새로고침</button></div>` : ''}
   <div class="card"><b>백업</b><div class="sub" style="margin:4px 0 10px">앱을 다시 설치하기 전에 백업 코드를 복사해 메모 앱 등에 붙여 두세요. 보통은 같은 앱 위에 덮어 설치하면 기록이 유지돼요.</div>
@@ -1358,7 +1369,7 @@ function hlBar(rect, erase) {
   b.style.top = (below ? rect.bottom + 14 : Math.max(8, rect.top - h - 60)) + 'px';
   b.style.left = Math.min(innerWidth - w - 8, Math.max(8, rect.left + rect.width / 2 - w / 2)) + 'px';
 }
-function hlHide() { const b = $('#hlbar'); if (b) b.style.display = 'none'; HL.pend = null; }
+function hlHide() { const b = $('#hlbar'); if (b) b.style.display = 'none'; HL.pend = null; hlSelClear(); }
 function hlOverlap(k, s, e) { return ((S.hl || {})[k] || []).some(h => h.s < e && h.e > s); }
 function hlApply(c) {
   const p = HL.pend; if (!p) return hlHide();
@@ -1390,6 +1401,7 @@ function hlCheck() {
 document.addEventListener('selectionchange', () => { clearTimeout(HL.t); HL.t = setTimeout(hlCheck, 180); });
 // 칠한 곳을 누르면 색 바꾸기·지우기
 document.addEventListener('click', ev => {
+  if (Date.now() - (HL.justSel || 0) < 500) return;
   const m = ev.target.closest && ev.target.closest('mark.hl');
   if (!m) { if (HL.pend && !HL.pend.sel && !ev.target.closest('#hlbar')) hlHide(); return; }
   const sel = getSelection(); if (sel && !sel.isCollapsed) return;
@@ -1401,3 +1413,61 @@ document.addEventListener('click', ev => {
   hlBar(m.getBoundingClientRect(), true); ev.stopPropagation();
 }, true);
 addEventListener('scroll', () => { if (HL.pend && HL.pend.sel) hlCheck(); else if (HL.pend) hlHide(); }, { passive: true });
+
+// ── 직접 선택 (iOS 복사·글쓰기 도구 메뉴가 안 뜨게 블록의 기본 텍스트 선택을 끄고 앱이 선택을 처리) ──
+// 손가락·펜: 꾹 눌러 0.4초 → 단어 선택, 그대로 끌면 범위 늘리기 / 마우스: 끌어서 선택. 그냥 쓸어 넘기면 스크롤
+function hlCaret(x, y) {
+  if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+  if (document.caretPositionFromPoint) { const q = document.caretPositionFromPoint(x, y); if (q) { const r = document.createRange(); r.setStart(q.offsetNode, q.offset); return r; } }
+  return null;
+}
+function hlPointOff(root, x, y) {
+  const r = hlCaret(x, y);
+  if (r && root.contains(r.startContainer)) return hlOff(root, r.startContainer, r.startOffset);
+  const rr = root.getBoundingClientRect(); if (y < rr.top) return 0; if (y > rr.bottom) return root.textContent.length; return null;
+}
+function hlRange(root, s, e) {
+  const r = document.createRange(); let st = false;
+  for (const [n, p] of hlTexts(root)) { const L = n.data.length; if (!st && s <= p + L) { r.setStart(n, s - p); st = true; } if (st && e <= p + L) { r.setEnd(n, e - p); return r; } }
+  return null;
+}
+function hlSelClear() { HS.root = null; HS.on = false; const b = $('#hlsel'); if (b) b.innerHTML = ''; }
+function hlSelDraw() {
+  let box = $('#hlsel'); if (!box) { box = document.createElement('div'); box.id = 'hlsel'; document.body.appendChild(box); }
+  const s = Math.min(HS.a0, HS.b), e = Math.max(HS.a1, HS.b), r = HS.root && hlRange(HS.root, s, e);
+  box.innerHTML = r ? [...r.getClientRects()].filter(q => q.width > 0.5).map(q => `<i style="left:${q.left + scrollX}px;top:${q.top + scrollY}px;width:${q.width}px;height:${q.height}px"></i>`).join('') : '';
+}
+function hlWord(t, o) { const W = /[^\s.,·()\[\]{}:;'"\/→<>=+\-*|!?]/; let a = o, b = o; while (a > 0 && W.test(t[a - 1])) a--; while (b < t.length && W.test(t[b])) b++; if (a === b) b = Math.min(t.length, o + 1); return [a, b]; }
+function hlBegin(root, x, y, word) {
+  const o = hlPointOff(root, x, y); if (o == null) return false;
+  hlHide();
+  const [a, b] = word ? hlWord(root.textContent, o) : [o, o];
+  HS.on = true; HS.root = root; HS.a0 = a; HS.a1 = b; HS.b = word ? b : o; hlSelDraw(); return true;
+}
+function hlMove(x, y) { const o = hlPointOff(HS.root, x, y); if (o == null) return; HS.b = o < HS.a0 ? o : Math.max(o, HS.a1); hlSelDraw(); }
+function hlEnd() {
+  const root = HS.root, s = Math.min(HS.a0, HS.b), e = Math.max(HS.a1, HS.b); HS.on = false;
+  if (!root) return; const t = root.textContent.slice(s, e), r = hlRange(root, s, e);
+  if (!t.trim() || !r) return hlSelClear();
+  HL.pend = { k: root.dataset.hk, s, e, t }; HL.touch = HL.justSel = Date.now();
+  hlBar(r.getBoundingClientRect(), hlOverlap(HL.pend.k, s, e));
+}
+document.addEventListener('pointerdown', e => {
+  if (HS.on) return;
+  const root = e.target.closest && e.target.closest('[data-hk]');
+  if (!root || root.closest('.inking') || (e.pointerType === 'mouse' && e.button !== 0)) { HS.st = null; return; }
+  HS.st = { x: e.clientX, y: e.clientY, id: e.pointerId, m: e.pointerType === 'mouse', root };
+  clearTimeout(HS.t);
+  if (!HS.st.m) { const st = HS.st; HS.t = setTimeout(() => { if (HS.st === st) hlBegin(st.root, st.x, st.y, true); }, 420); }
+}, true);
+document.addEventListener('pointermove', e => {
+  const s = HS.st; if (!s || e.pointerId !== s.id) return;
+  if (HS.on) { hlMove(e.clientX, e.clientY); return; }
+  const d = Math.hypot(e.clientX - s.x, e.clientY - s.y);
+  if (s.m) { if (d > 5 && (e.buttons & 1) && hlBegin(s.root, s.x, s.y, false)) hlMove(e.clientX, e.clientY); }
+  else if (d > 10) { clearTimeout(HS.t); HS.st = null; } // 움직이면 스크롤로 봄
+}, true);
+document.addEventListener('pointerup', e => { const s = HS.st; clearTimeout(HS.t); if (s && e.pointerId === s.id && HS.on) hlEnd(); HS.st = null; }, true);
+document.addEventListener('pointercancel', () => { clearTimeout(HS.t); if (HS.on) hlEnd(); HS.st = null; }, true);
+document.addEventListener('touchmove', e => { if (HS.on) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-hk]')) e.preventDefault(); });
