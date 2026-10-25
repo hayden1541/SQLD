@@ -1,4 +1,8 @@
 'use strict';
+var HL_C = [['y', '노랑'], ['g', '초록'], ['b', '파랑'], ['p', '분홍']];
+var HL = { pend: null, touch: 0, t: null };
+var SYNC = { user: null, at: 0, busy: false, err: '' };
+var FB = null;
 // ───────── 데이터 ─────────
 const BANK = window.BANK, CONCEPTS = window.CONCEPTS, FLASH = window.FLASH;
 const QMAP = {}; BANK.forEach(q => { QMAP[q.id] = q; });
@@ -160,8 +164,8 @@ function cram() {
   <button class="btn" style="margin-top:10px" onclick="startPractice({ids:[${often.map(x => x.q.id).join(',')}],order:'seq',n:${often.length},title:'자주 틀린 문제'})">이 문제들 다시 풀기</button></div>` : ''}
   <h2>개념별 함정 · 핵심</h2>
   ${ids.map((id, i) => { const c = CMAP[id], g = p.gain.find(x => x.c === id); return `<details class="card cram" ${i < 5 ? 'open' : ''}><summary><b>${esc(c.name)}</b><span class="sub">${c.s}과목${g ? ` · +${g.g.toFixed(1)}점 여지` : ''}</span></summary>
-    ${(c.trap || []).length ? `<div class="trap"><b>함정</b><ul>${c.trap.map(t => `<li>${md(t)}</li>`).join('')}</ul></div>` : ''}
-    <ul class="sum">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
+    ${(c.trap || []).length ? `<div class="trap" data-hk="c_${id}:t"><b>함정</b><ul>${c.trap.map(t => `<li>${md(t)}</li>`).join('')}</ul></div>` : ''}
+    <ul class="sum" data-hk="c_${id}:s">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
     <button class="chip c" onclick="go('concept',{id:'${id}'})">개념 전체 보기</button></details>`; }).join('')}`;
 }
 
@@ -444,7 +448,7 @@ function qCode(q) {
 }
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 1800); }
-function sheet(html) { closeSheet(); const bg = document.createElement('div'); bg.className = 'sheet-bg'; bg.id = 'sheet'; bg.innerHTML = '<div class="sheet"><div class="grab"></div>' + html + '</div>'; bg.addEventListener('click', e => { if (e.target === bg) closeSheet(); }); document.body.appendChild(bg); }
+function sheet(html) { closeSheet(); const bg = document.createElement('div'); bg.className = 'sheet-bg'; bg.id = 'sheet'; bg.innerHTML = '<div class="sheet"><div class="grab"></div>' + html + '</div>'; bg.addEventListener('click', e => { if (e.target === bg) closeSheet(); }); document.body.appendChild(bg); hlMount(bg); }
 function ask(msg, yes, fn) {
   sheet(`<div class="q" style="font-weight:600">${esc(msg)}</div><div class="grid2" style="margin-top:12px"><button class="btn line" onclick="closeSheet()">취소</button><button class="btn" id="askYes">${esc(yes)}</button></div>`);
   $('#askYes').onclick = () => { closeSheet(); fn(); };
@@ -474,6 +478,7 @@ function render() {
   if (!S.cause) S.cause = {};
   const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
+  hlHide(); hlMount($('#app'));
   inkMount();
 }
 
@@ -700,13 +705,13 @@ function quiz() {
   <div class="inkw inkall ${INK.on ? 'inking' : ''}${(INK.s[q.id] || []).length ? ' hasink' : ''}" id="inkw" data-q="${q.id}"><div class="qa"><div class="qa-l">
   <div class="top"><div class="qmeta"><span class="tag lt${c.s}">${c.s}과목</span>${esc(c.name)} · ${DLABEL[q.d]}</div>${inkBar()}</div>
   ${tblBlock(q)}
-  <div class="q">${md(q.q)}</div>${qExtra(q)}${figs(q)}
+  <div class="q" data-hk="q_${q.id}:q">${md(q.q)}</div>${qExtra(q)}${figs(q)}
   ${qCode(q)}
   </div><div class="qa-r">
   ${q.o.map((t, k) => { let cl = ''; if (sh) { if (k === q.a) cl = 'right'; else if (k === QS.pick) cl = 'wrong'; } else if (k === QS.pick) cl = 'sel';
     return `<button class="opt ${cl}${sh && k !== q.a && (k === QS.pick || !S.set.whyFold) ? ' open' : ''}${sh && q.w && k !== q.a ? ' hasw' : ''}" onclick="optTap(this, ${k})"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${sh ? whyH(q, k) : ''}</span></button>`; }).join('')}
   ${sh && q.w ? whyTog() : ''}
-  ${sh ? `<div class="exp ${ok ? 'ok' : 'no'}"><b>${ok ? '정답' : '오답 · 정답 ' + MK[q.a]}</b><br>${md(q.e)}</div>
+  ${sh ? `<div class="exp ${ok ? 'ok' : 'no'}"><b>${ok ? '정답' : '오답 · 정답 ' + MK[q.a]}</b><br><span data-hk="q_${q.id}:e">${md(q.e)}</span></div>
     ${QS.rv && QS.rv[q.id] ? `<div class="rvnote">${esc(QS.rv[q.id])}</div>` : ''}
     ${QS.mode !== 'mockview' ? fbRow(q, ok) : ''}
     ${plusH(q)}
@@ -924,17 +929,17 @@ function qref(h, self) {
   });
 }
 function plusH(q) {
-  return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul>${q.kk.map(x => `<li>${qref(md(x), q.id)}</li>`).join('')}</ul></div>` : '') +
-    (q.tip ? `<div class="tipbox"><b>꿀팁</b> ${qref(md(q.tip), q.id)}</div>` : '');
+  return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul data-hk="q_${q.id}:k">${q.kk.map(x => `<li>${qref(md(x), q.id)}</li>`).join('')}</ul></div>` : '') +
+    (q.tip ? `<div class="tipbox"><b>꿀팁</b> <span data-hk="q_${q.id}:t">${qref(md(q.tip), q.id)}</span></div>` : '');
 }
 function whyTog() { return `<div class="why-hint"><button class="whytog" onclick="S.set.whyFold=!S.set.whyFold;save();render()">${S.set.whyFold ? '▾ 보기별 오답 이유 모두 펼치기' : '▴ 오답 이유 접기 (고른 보기만 남김)'}</button></div>`; }
 function whyH(q, k) { if (k === q.a) return '<span class="why okw">✓ 정답</span>'; return q.w && k !== q.a && q.w[k] ? `<span class="why">✕ ${esc(q.w[k])}</span>` : ''; }
 function peek(id) {
   const q = QMAP[id];
-  sheet(`<div class="qmeta"><span class="tag lt${CMAP[q.c].s}">${CMAP[q.c].s}과목</span>${esc(CMAP[q.c].name)} · ${DLABEL[q.d]}</div>${tblBlock(q, true)}<div class="q">${md(q.q)}</div>${qExtra(q)}${figs(q)}${qCode(q)}
+  sheet(`<div class="qmeta"><span class="tag lt${CMAP[q.c].s}">${CMAP[q.c].s}과목</span>${esc(CMAP[q.c].name)} · ${DLABEL[q.d]}</div>${tblBlock(q, true)}<div class="q" data-hk="q_${q.id}:q">${md(q.q)}</div>${qExtra(q)}${figs(q)}${qCode(q)}
   ${q.o.map((t, k) => `<div class="opt ${k === q.a ? 'right' : ''}${q.w && k !== q.a ? ' hasw' : ''}${q.w && k !== q.a && !S.set.whyFold ? ' open' : ''}" onclick="this.classList.toggle('open')"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${whyH(q, k)}</span></div>`).join('')}
   ${q.w ? `<div class="why-hint">${S.set.whyFold ? '보기를 누르면 왜 틀렸는지 보여요' : '보기를 누르면 이유를 접을 수 있어요'}</div>` : ''}
-  <div class="exp ok">${md(q.e)}</div>${plusH(q)}
+  <div class="exp ok"><span data-hk="q_${q.id}:e">${md(q.e)}</span></div>${plusH(q)}
   ${S.conf[id] ? `<button class="btn line" onclick="togConf(${id});closeSheet()">헷갈림 표시 해제</button>` : ''}`);
 }
 
@@ -951,10 +956,10 @@ function conceptBody(c, inSheet) {
   const st = conceptStat(c.id);
   return `<div class="qmeta"><span class="tag lt${c.s}">${c.s}과목</span>${esc(c.unit)}</div><h1 style="font-size:22px">${esc(c.name)}</h1>
   <div class="row" style="margin:6px 0 4px"><span class="pill">정답률 ${pct(st.acc)}</span><span class="sub">${st.solved}/${st.total}문항 풀이</span></div>
-  <ul class="sum">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
+  <ul class="sum" data-hk="c_${c.id}:s">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
   ${figs(c)}${c.ex ? `<pre class="code">${esc(c.ex.join('\n'))}</pre>` : ''}
   ${moreHTML(c)}
-  ${c.trap ? `<div class="trap"><b>함정</b><br>${c.trap.map(md).join('<br>')}</div>` : ''}
+  ${c.trap ? `<div class="trap" data-hk="c_${c.id}:t"><b>함정</b><br>${c.trap.map(md).join('<br>')}</div>` : ''}
   ${inSheet ? '' : `<div class="grid2" style="margin-top:14px">
     <button class="btn" onclick="startPractice({cs:['${c.id}'],n:${Math.min(20, st.total)},order:'new',title:'${esc(c.name)}'})">이 개념 문제 풀기</button>
     <button class="btn ${S.cdone[c.id] ? 'line' : 'ghost'}" onclick="togDone('${c.id}')">${S.cdone[c.id] ? '학습 완료 취소' : '학습 완료'}</button></div>
@@ -965,7 +970,7 @@ function moreHTML(c) {
   const B = (window.CMORE || {})[c.id]; if (!B) return '';
   const cell = x => x === 'NULL' ? '<span class="muted">NULL</span>' : md(x);
   const tb = (t, cls) => `<div class="otb"><table class="t ${cls}"><tr>${t.cols.map(x => `<th>${md(x)}</th>`).join('')}</tr>${t.rows.map(r => '<tr>' + r.map(x => `<td>${cell(x)}</td>`).join('') + '</tr>').join('')}</table></div>`;
-  return `<div class="more"><div class="more-h">개념 정리</div>${B.map(b =>
+  return `<div class="more" data-hk="c_${c.id}:m"><div class="more-h">개념 정리</div>${B.map(b =>
     b.h ? `<h3>${md(b.h)}</h3>` : b.p ? `<p>${md(b.p)}</p>` : b.li ? `<ul>${b.li.map(x => `<li>${md(x)}</li>`).join('')}</ul>` :
     b.t ? tb(b.t, 'mt') : b.code ? `<pre class="code">${esc(b.code.join('\n'))}</pre>${b.out ? `<div class="mout"><span>실행 결과${b.out.rows.length ? '' : ' · 0건'}</span>${b.out.rows.length ? tb(b.out, 'mo') : ''}</div>` : ''}` : '').join('')}</div>`;
 }
@@ -1030,7 +1035,7 @@ function mockrun() {
     <span class="timer" id="mt">${fmtT(MK_S.end - Date.now())}</span><button class="icon-btn" onclick="mockGrid()">${answered}/50</button></div>
   ${qline(MK_S.i < 10 ? 1 : 2, MK_S.i, 50)}<div class="qmeta"><span class="tag lt${MK_S.i < 10 ? 1 : 2}">${MK_S.i < 10 ? '1과목' : '2과목'}</span>${MK_S.i + 1}번</div>
   <div class="inkw inkall ${INK.on ? 'inking' : ''}${(INK.s[q.id] || []).length ? ' hasink' : ''}" id="inkw" data-q="${q.id}"><div class="qa"><div class="qa-l"><div class="top" style="justify-content:flex-end">${inkBar()}</div>
-  ${tblBlock(q)}<div class="q">${md(q.q)}</div>${qExtra(q)}${figs(q)}${qCode(q)}</div><div class="qa-r">
+  ${tblBlock(q)}<div class="q" data-hk="q_${q.id}:q">${md(q.q)}</div>${qExtra(q)}${figs(q)}${qCode(q)}</div><div class="qa-r">
   ${q.o.map((t, k) => `<button class="opt ${MK_S.ans[id] === k ? 'sel' : ''}" onclick="MK_S.ans[${id}]=${k};render()"><span class="n">${k + 1}</span><span>${ot(t)}</span></button>`).join('')}
   <div class="grid2" style="margin-top:12px"><button class="btn line" ${MK_S.i ? '' : 'disabled'} onclick="MK_S.i--;render();scrollTo(0,0)">이전</button>
   ${MK_S.i < 49 ? `<button class="btn" onclick="MK_S.i++;render();scrollTo(0,0)">다음</button>` : `<button class="btn" onclick="submitMock()">제출</button>`}</div>
@@ -1177,8 +1182,6 @@ async function hardRefresh() {
 }
 
 // ───────── 구글 로그인 · 기록 동기화 (Firebase) ─────────
-const SYNC = { user: null, at: 0, busy: false, err: '' };
-let FB = null;
 function fbOn() { return !!(window.FB_CONFIG && window.FB_CONFIG.apiKey) && /^https?:$/.test(location.protocol); }
 function fbErr(e) {
   const c = (e && e.code) || '';
@@ -1219,7 +1222,7 @@ function mergeState(a, b) {
   Object.entries(b.att || {}).forEach(([k, x]) => { const y = m.att[k]; if (!y || x.n > y.n || (x.n === y.n && (x.lr || x.last || '') > (y.lr || y.last || ''))) m.att[k] = x; });
   m.days = Object.assign({}, a.days);
   Object.entries(b.days || {}).forEach(([k, x]) => { const y = m.days[k]; if (!y || x.n > y.n) m.days[k] = x; });
-  ['conf', 'cdone', 'fl', 'cause'].forEach(k => { m[k] = Object.assign({}, od[k] || {}, nw[k] || {}); });
+  ['conf', 'cdone', 'fl', 'cause', 'hl'].forEach(k => { m[k] = Object.assign({}, od[k] || {}, nw[k] || {}); });
   const seen = new Set(), key = x => [x.date, x.total, x.s1, (x.ids || []).slice(0, 5).join(',')].join('|');
   m.mocks = [...(a.mocks || []), ...(b.mocks || [])].filter(x => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
@@ -1302,3 +1305,76 @@ if (fbOn()) {
   try { if (localStorage.getItem('sqld_fb')) fbLoad().catch(() => {}); } catch (e) {}
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const r = fbRef(); if (r) fbSync(r); } });
 }
+
+// ───────── 형광펜 ─────────
+function hlRoot(n) { const e = n && (n.nodeType === 1 ? n : n.parentElement); return e ? e.closest('[data-hk]') : null; }
+function hlOff(root, node, off) { const r = document.createRange(); r.setStart(root, 0); r.setEnd(node, off); return r.toString().length; }
+function hlTexts(root) { const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), out = []; let p = 0, n; while ((n = w.nextNode())) { out.push([n, p]); p += n.data.length; } return out; }
+function hlFind(full, h) { // 저장한 위치에 같은 글자가 없으면 가장 가까운 같은 글자를 찾음
+  if (full.slice(h.s, h.e) === h.t) return [h.s, h.e];
+  let best = -1, i = full.indexOf(h.t);
+  while (i >= 0) { if (best < 0 || Math.abs(i - h.s) < Math.abs(best - h.s)) best = i; i = full.indexOf(h.t, i + 1); }
+  return best < 0 ? null : [best, best + h.t.length];
+}
+function hlPaint(root) {
+  root.querySelectorAll('mark.hl').forEach(m => m.replaceWith(...m.childNodes)); root.normalize();
+  const L = ((S.hl || {})[root.dataset.hk] || []); if (!L.length) return;
+  const full = root.textContent, segs = L.map(h => { const r = hlFind(full, h); return r && { s: r[0], e: r[1], c: h.c }; }).filter(Boolean);
+  hlTexts(root).forEach(([n, p]) => {
+    if (n.parentElement && n.parentElement.closest('svg')) return;
+    const mine = segs.filter(x => x.s < p + n.data.length && x.e > p).map(x => ({ a: Math.max(0, x.s - p), b: Math.min(n.data.length, x.e - p), c: x.c })).sort((x, y) => y.a - x.a);
+    mine.forEach(x => { if (x.b <= x.a) return; if (x.b < n.data.length) n.splitText(x.b); const mid = x.a > 0 ? n.splitText(x.a) : n; const m = document.createElement('mark'); m.className = 'hl hl-' + x.c; mid.replaceWith(m); m.appendChild(mid); });
+  });
+}
+function hlMount(el) { (el || document).querySelectorAll('[data-hk]').forEach(hlPaint); }
+function hlBar(rect, erase) {
+  let b = $('#hlbar'); if (!b) { b = document.createElement('div'); b.id = 'hlbar'; document.body.appendChild(b); b.addEventListener('pointerdown', () => { HL.touch = Date.now(); }); b.addEventListener('touchstart', () => { HL.touch = Date.now(); }, { passive: true }); }
+  b.innerHTML = HL_C.map(([k, l]) => `<button class="hlc hl-${k}" aria-label="${l}" onclick="hlApply('${k}')"></button>`).join('') + (erase ? `<button class="hlx" onclick="hlApply('')">지우기</button>` : '');
+  b.style.display = 'flex';
+  const h = 48, w = b.offsetWidth || 220, below = rect.bottom + 14 + h < innerHeight - 70;
+  b.style.top = (below ? rect.bottom + 14 : Math.max(8, rect.top - h - 60)) + 'px';
+  b.style.left = Math.min(innerWidth - w - 8, Math.max(8, rect.left + rect.width / 2 - w / 2)) + 'px';
+}
+function hlHide() { const b = $('#hlbar'); if (b) b.style.display = 'none'; HL.pend = null; }
+function hlOverlap(k, s, e) { return ((S.hl || {})[k] || []).some(h => h.s < e && h.e > s); }
+function hlApply(c) {
+  const p = HL.pend; if (!p) return hlHide();
+  S.hl = S.hl || {};
+  const out = [];
+  (S.hl[p.k] || []).forEach(h => { // 새로 칠하는 범위와 겹치는 부분은 잘라냄
+    if (h.e <= p.s || h.s >= p.e) { out.push(h); return; }
+    if (h.s < p.s) out.push({ s: h.s, e: p.s, c: h.c, t: h.t.slice(0, p.s - h.s) });
+    if (h.e > p.e) out.push({ s: p.e, e: h.e, c: h.c, t: h.t.slice(p.e - h.s) });
+  });
+  if (c) out.push({ s: p.s, e: p.e, c, t: p.t });
+  out.sort((x, y) => x.s - y.s);
+  if (out.length) S.hl[p.k] = out; else delete S.hl[p.k];
+  save();
+  try { getSelection().removeAllRanges(); } catch (e) {}
+  document.querySelectorAll(`[data-hk="${p.k}"]`).forEach(hlPaint);
+  hlHide();
+}
+function hlCheck() {
+  const sel = getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) { if (Date.now() - HL.touch > 700 && HL.pend && HL.pend.sel) hlHide(); return; }
+  const r = sel.getRangeAt(0), root = hlRoot(r.startContainer);
+  if (!root || hlRoot(r.endContainer) !== root || root.closest('.inking')) { if (HL.pend && HL.pend.sel) hlHide(); return; }
+  const s = hlOff(root, r.startContainer, r.startOffset), e = hlOff(root, r.endContainer, r.endOffset), t = root.textContent.slice(s, e);
+  if (!t.trim()) return;
+  HL.pend = { k: root.dataset.hk, s, e, t, sel: 1 };
+  hlBar(r.getBoundingClientRect(), hlOverlap(HL.pend.k, s, e));
+}
+document.addEventListener('selectionchange', () => { clearTimeout(HL.t); HL.t = setTimeout(hlCheck, 180); });
+// 칠한 곳을 누르면 색 바꾸기·지우기
+document.addEventListener('click', ev => {
+  const m = ev.target.closest && ev.target.closest('mark.hl');
+  if (!m) { if (HL.pend && !HL.pend.sel && !ev.target.closest('#hlbar')) hlHide(); return; }
+  const sel = getSelection(); if (sel && !sel.isCollapsed) return;
+  const root = hlRoot(m); if (!root) return;
+  const s = hlOff(root, m, 0), e = s + m.textContent.length, k = root.dataset.hk;
+  const h = ((S.hl || {})[k] || []).find(x => x.s <= s && x.e >= e); if (!h) return;
+  const full = root.textContent, r0 = hlFind(full, h) || [h.s, h.e];
+  HL.pend = { k, s: r0[0], e: r0[1], t: h.t }; HL.touch = Date.now();
+  hlBar(m.getBoundingClientRect(), true); ev.stopPropagation();
+}, true);
+addEventListener('scroll', () => { if (HL.pend && HL.pend.sel) hlCheck(); else if (HL.pend) hlHide(); }, { passive: true });
