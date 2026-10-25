@@ -1,4 +1,36 @@
 'use strict';
+var THEMES = [['auto', '자동'], ['light', '화이트'], ['dark', '다크'], ['black', '블랙'], ['paper', '종이']];
+function themeApply(t) {
+  const r = document.documentElement; if (!t || t === 'auto') delete r.dataset.theme; else r.dataset.theme = t;
+  const dark = t === 'dark' || t === 'black' || ((!t || t === 'auto') && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  const col = { black: '#000000', paper: '#F5EFE3' }[t] || (dark ? '#0f1115' : '#ffffff');
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
+  const m = document.createElement('meta'); m.name = 'theme-color'; m.content = col; document.head.appendChild(m);
+}
+function themeGet() { try { return localStorage.getItem('sqld_theme') || 'auto'; } catch (e) { return 'auto'; } }
+function themeSet(t) { try { localStorage.setItem('sqld_theme', t); } catch (e) {} themeApply(t); render(); }
+themeApply(themeGet());
+var SPL = { done: false, q: [] };
+function afterSplash(f) { if (SPL.done) f(); else SPL.q.push(f); }
+function splashEnd() { if (SPL.done) return; SPL.done = true; const s = document.getElementById('splash'); if (s) { s.classList.add('out'); setTimeout(() => s.remove(), 320); } SPL.q.splice(0).forEach(f => { try { f(); } catch (e) {} }); }
+(function splash() {
+  if (navigator.webdriver) { SPL.done = true; return; }
+  const red = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let dd = '';
+  try { const st = JSON.parse(localStorage.getItem('sqld_note_v1') || '{}'), ex = (st.set && st.set.exam) || '2026-11-14', t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    const n = Math.round((new Date(ex + 'T00:00:00') - t0) / 86400000); dd = n > 0 ? 'D-' + n : n === 0 ? 'D-DAY' : ''; } catch (e) {}
+  const st = (x, y, c, i) => `<circle class="sp-st" style="animation-delay:${i}ms" cx="${x}" cy="${y}" r="7" fill="var(--bg)" stroke="${c}" stroke-width="4"/>`;
+  const el = document.createElement('div'); el.id = 'splash'; if (red) el.className = 'red';
+  el.innerHTML = `<div class="sp-in"><svg viewBox="0 0 280 110" width="280" height="110" aria-hidden="true">
+    <path class="sp-ln" d="M20 25 H110 L170 85 H260" stroke="var(--ln1)"/><path class="sp-ln sp-ln2" d="M20 85 H110 L170 25 H260" stroke="var(--ln2)"/>
+    ${st(20, 25, 'var(--ln1)', 250)}${st(65, 25, 'var(--ln1)', 330)}${st(110, 25, 'var(--ln1)', 410)}${st(215, 85, 'var(--ln1)', 650)}${st(260, 85, 'var(--ln1)', 730)}
+    ${st(20, 85, 'var(--ln2)', 290)}${st(65, 85, 'var(--ln2)', 370)}${st(110, 85, 'var(--ln2)', 450)}${st(215, 25, 'var(--ln2)', 690)}${st(260, 25, 'var(--ln2)', 770)}
+    <circle class="sp-x" cx="140" cy="55" r="11" fill="var(--bg)" stroke="var(--ink)" stroke-width="5"/></svg>
+    <div class="sp-t">SQLD 합격노트</div><div class="sp-d">${dd}</div></div>`;
+  el.addEventListener('click', splashEnd);
+  (document.body || document.documentElement).appendChild(el);
+  setTimeout(splashEnd, red ? 500 : 1650);
+})();
 var HL_C = [['y', '노랑'], ['g', '초록'], ['b', '파랑'], ['p', '분홍']];
 var HL = { pend: null, touch: 0, t: null };
 var HS = { st: null, on: false, root: null, a0: 0, a1: 0, b: 0, t: null };
@@ -374,7 +406,7 @@ const lvl = v => v == null ? '' : v < 0.6 ? 'low' : v < 0.8 ? 'mid' : 'high';
 // ───────── 유틸 ─────────
 const $ = s => document.querySelector(s);
 function esc(t) { return String(t).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
-function md(t) { return esc(t).replace(/__([^_\s][^_]*?)__/g, '<u>$1</u>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>'); }
+function md(t) { return esc(t).replace(/__([^_\s][^_]*?)__/g, '<u>$1</u>').replace(/\*\*(?=[^*]*[0-9A-Za-z가-힣])([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>'); }
 // ───────── 표기법 그림 (SVG) ─────────
 // ie|A|끝A|끝B|B|s/d   끝 = (최소)(최대), 선에서 엔터티 쪽으로 읽음: 11 o1 1< o< -< o- 등
 // end|B|끝   bk|엔터티|#속성,*속성,o속성   bkrel|A|B|A점선|B점선|B까마귀발   chen|A|관계|B|A속성,..|B속성,..
@@ -1153,6 +1185,8 @@ function settings() {
   return `<button class="icon-btn" onclick="go('home')">← 홈</button><h1>설정</h1>
   ${syncCard()}
   <div class="card" onclick="go('guide')" style="cursor:pointer"><div class="top"><b>사용설명서</b><span class="sub">처음 쓰는 법 ›</span></div></div>
+  <div class="card"><b>화면 테마</b><div class="seg theme-seg">${THEMES.map(([k, l]) => `<button class="${themeGet() === k ? 'on' : ''}" onclick="themeSet('${k}')">${l}</button>`).join('')}</div>
+  <div class="sub" style="font-size:12.5px">자동은 기기의 라이트·다크 설정을 따라가요. 블랙은 배경이 완전 검정이라 OLED 화면에서 눈이 편하고 배터리를 덜 써요.</div></div>
   <div class="card"><b>시험일</b><input type="date" value="${S.set.exam}" onchange="S.set.exam=this.value;save()">
   <b style="display:block;margin-top:12px">하루 목표 문항 수</b><input type="number" min="5" max="200" value="${S.set.goal}" onchange="S.set.goal=Math.max(5,+this.value||30);save()"></div>
   <div class="card"><b>문제 풀이</b>
@@ -1552,4 +1586,6 @@ function guide() {
   <label class="setrow" style="margin-top:20px"><input type="checkbox" ${guideOff() ? '' : 'checked'} onchange="guideSet(!this.checked)"> 앱을 열 때 사용설명서 보여 주기</label>`;
 }
 // 앱을 열 때: '다시 보지 않기'를 체크하기 전까지 매번 (자동 테스트 브라우저에서는 띄우지 않음)
-if (!guideOff() && !navigator.webdriver) setTimeout(() => { if (view === 'home' && !$('#sheet')) guideOpen(); }, 500);
+if (!guideOff() && !navigator.webdriver) afterSplash(() => setTimeout(() => { if (view === 'home' && !$('#sheet')) guideOpen(); }, 250));
+
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => themeApply(themeGet())); } catch (e) {}
