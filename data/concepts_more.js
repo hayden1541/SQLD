@@ -362,7 +362,7 @@ s01: [
   { p: "SELECT만 따로 떼어 DQL(질의어)이라고 부르기도 하지만, 시험 보기에서는 보통 DML로 묶습니다." },
   { h: "헷갈리는 명령어" },
   { li: [
-    "**TRUNCATE**: 데이터를 지우지만 DDL. 롤백 불가, 테이블 구조는 남음",
+    "**TRUNCATE**: 데이터를 지우지만 DDL. Oracle은 자동 커밋이라 롤백 불가(SQL Server는 명시적 트랜잭션 안이면 롤백 가능), 테이블 구조는 남음",
     "**DROP**: 구조까지 통째로 삭제 (DDL)",
     "**DELETE**: 행 삭제 (DML). 롤백 가능",
     "**MERGE**: 있으면 UPDATE, 없으면 INSERT (DML)",
@@ -559,7 +559,7 @@ s11: [
   { p: "(부서, 직무) 조합이 실제로 있는 9개 그룹이 나옵니다. `SELECT DEPTNO, ENAME … GROUP BY DEPTNO`처럼 묶지 않은 ENAME을 쓰면 ORA-00979 오류입니다." },
   { h: "WHERE와 HAVING" },
   { t: { cols: ["", "WHERE", "HAVING"], rows: [["거르는 대상", "묶기 전 **행**", "묶은 뒤 **그룹**"], ["집계함수", "사용 불가", "사용 가능"], ["실행 순서", "GROUP BY 전", "GROUP BY 후"]] } },
-  { code: ["SELECT JOB, COUNT(*) FROM EMP GROUP BY JOB HAVING AVG(SAL) >= 2000;"], out: { cols: ["JOB", "COUNT(*)"], rows: [["ANALYST", "2"], ["MANAGER", "3"], ["PRESIDENT", "1"]] },
+  { code: ["SELECT JOB, COUNT(*) FROM EMP GROUP BY JOB HAVING AVG(SAL) >= 2000 ORDER BY 1;"], out: { cols: ["JOB", "COUNT(*)"], rows: [["ANALYST", "2"], ["MANAGER", "3"], ["PRESIDENT", "1"]] },
     chk: "SELECT JOB, COUNT(*) FROM EMP GROUP BY JOB HAVING AVG(SAL) >= 2000 ORDER BY 1" },
   { li: [
     "HAVING에 쓴 집계함수(AVG)는 SELECT에 없어도 됨",
@@ -635,7 +635,7 @@ s15: [
 s16: [
   { h: "OUTER JOIN 세 가지" },
   { t: { cols: ["종류", "남기는 쪽"], rows: [["LEFT OUTER", "왼쪽 테이블 전부. 짝 없으면 오른쪽 컬럼이 NULL"], ["RIGHT OUTER", "오른쪽 테이블 전부"], ["FULL OUTER", "양쪽 전부 (LEFT ∪ RIGHT)"]] } },
-  { code: ["SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO) 인원, COUNT(*) 행수", "FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO", "GROUP BY D.DEPTNO, D.DNAME;"],
+  { code: ["SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO) 인원, COUNT(*) 행수", "FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO", "GROUP BY D.DEPTNO, D.DNAME ORDER BY 1;"],
     out: { cols: ["DEPTNO", "DNAME", "인원", "행수"], rows: [["10", "ACCOUNTING", "3", "3"], ["20", "RESEARCH", "5", "5"], ["30", "SALES", "6", "6"], ["40", "OPERATIONS", "0", "1"]] },
     chk: "SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO), COUNT(*) FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO GROUP BY D.DEPTNO, D.DNAME ORDER BY 1" },
   { p: "40번 부서는 사원이 없어서 E 쪽이 전부 NULL인 한 줄로 남습니다. COUNT(*)는 그 한 줄을 1로 세고, COUNT(E.EMPNO)는 NULL이라 0으로 셉니다. 인원을 세려면 오른쪽 테이블의 PK를 세야 합니다." },
@@ -1198,7 +1198,7 @@ s03: [
     "산술 연산자 `+ - * /` (NULL이 끼면 결과 NULL), 문자 연결 `||`",
     "문자·날짜 상수는 작은따옴표 'A', 별칭은 큰따옴표 \"A\"",
     "Oracle은 FROM이 필수라서 상수만 볼 때도 `SELECT 1 + 1 FROM DUAL`. DUAL은 1행 1열짜리 더미 테이블"] },
-  { code: ["SELECT DISTINCT DEPTNO, JOB FROM EMP;     -- (부서, 직무) 조합 기준으로 중복 제거"],
+  { code: ["SELECT DISTINCT DEPTNO, JOB FROM EMP ORDER BY 1, 2;   -- (부서, 직무) 조합 기준으로 중복 제거"],
     out: { cols: ["DEPTNO", "JOB"], rows: [["10", "CLERK"], ["10", "MANAGER"], ["10", "PRESIDENT"], ["20", "ANALYST"], ["20", "CLERK"], ["20", "MANAGER"], ["30", "CLERK"], ["30", "MANAGER"], ["30", "SALESMAN"]] },
     chk: "SELECT DISTINCT DEPTNO, JOB FROM EMP ORDER BY 1, 2" },
   { p: "`SELECT DISTINCT DEPTNO, DISTINCT JOB`처럼 두 번 쓰면 오류입니다. DISTINCT와 ORDER BY를 같이 쓰면 SELECT에 없는 컬럼으로는 정렬할 수 없습니다." }
