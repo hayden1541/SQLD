@@ -857,7 +857,11 @@ function inkMount() {
   cv.addEventListener('touchstart', stopTouch, { passive: false });
   cv.addEventListener('touchmove', stopTouch, { passive: false });
   cv.addEventListener('touchend', stopTouch, { passive: false });
-  let cur = null, pan = null, penAt = 0; const tch = new Set();
+  let cur = null, pan = null, penAt = 0, holdT = null; const tch = new Set();
+  const snapEnd = c => { const a = c.p[0], b = c.p[c.p.length - 1].slice(), dx = b[0] - a[0], dy = b[1] - a[1];
+    if (Math.abs(dy) < Math.abs(dx) * 0.105) b[1] = a[1]; else if (Math.abs(dx) < Math.abs(dy) * 0.105) b[0] = a[0]; // 6도 안쪽이면 가로·세로로 반듯하게
+    c.p = [a, b]; };
+  const toLine = c => { if (c !== cur || c.e || c.ln) return; const a = c.p[0], b = c.p[c.p.length - 1]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 24) return; c.ln = 1; snapEnd(c); inkDraw(); };
   const pt = e => { const r = cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) * 10) / 10, Math.round((e.clientY - r.top) * 10) / 10]; };
   const dropCur = () => { if (!cur) return; const l = INK.s[inkKey()] || [], i = l.indexOf(cur); if (i >= 0) l.splice(i, 1); cur = null; inkDraw(); };
   const startPan = e => { pan = { id: e.pointerId, y: e.clientY, go: false }; try { cv.setPointerCapture(e.pointerId); } catch (_) {} };
@@ -881,10 +885,12 @@ function inkMount() {
       if (pan.go || Math.abs(dy) > 14) { pan.go = true; window.scrollBy(0, -dy); pan.y = e.clientY; } return; }
     if (!cur || e.pointerId !== cur.id) return; e.preventDefault();
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; (evs.length ? evs : [e]).forEach(ev => { const q = pt(ev); cur.p.push([q[0] - cur.o[0], q[1] - cur.o[1]]); });
+    if (cur.ln) { snapEnd(cur); inkDraw(); return; }
+    { const q = cur.p[cur.p.length - 1]; if (!cur.h || Math.hypot(q[0] - cur.h[0], q[1] - cur.h[1]) > 4) { cur.h = q; clearTimeout(holdT); const c = cur; holdT = setTimeout(() => toLine(c), 450); } }
     const ctx = cv.getContext('2d'), k = inkScale(cv); ctx.setTransform(k, 0, 0, k, 0, 0);
     inkStroke(ctx, { c: cur.c, e: cur.e, p: cur.p.slice(-evs.length - 1) }, cur.o);
   };
-  cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); if (pan && e.pointerId === pan.id) pan = null; if (cur && e.pointerId === cur.id) cur = null; };
+  cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); if (pan && e.pointerId === pan.id) pan = null; if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; cur = null; } };
 }
 // 필기 중에는 필기 도구 말고는 아무것도 눌리지 않게 (보기·버튼·상단 버튼 포함)
 window.addEventListener('click', e => {
