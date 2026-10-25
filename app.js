@@ -808,8 +808,22 @@ window.onPencilTap = () => {
 function inkBarRefresh() { const b = document.querySelector('.inkbar'); if (b) b.outerHTML = inkBar(); }
 function inkClear() { const w = $('#inkw'); if (!w) return; INK.s[w.dataset.q] = []; inkDraw(); }
 function inkKey() { const w = $('#inkw'); return w ? w.dataset.q : null; }
-function inkStroke(ctx, st) {
-  const p = st.p; if (!p.length) return;
+// 필기 기준 블록: 작은 블록부터 (보기·지문·표·코드·해설 …), 없으면 좌우 영역
+const INK_AN = [['o', '.opt'], ['q', '.q'], ['t', '.qt'], ['t2', '.tfold-open'], ['c', 'pre.code'], ['b', '.qbox'], ['f', '.figs'], ['i', '.kimg'], ['n', '.qnote'], ['e', '.exp'], ['v', '.rvnote'], ['fb', '.fb'], ['k', '.kbox'], ['p', '.tipbox'], ['w', '.why-hint'], ['L', '.qa-l'], ['R', '.qa-r'], ['C', '.cink']];
+function inkAnchors(w, cv) {
+  const cr = cv.getBoundingClientRect(), out = [];
+  INK_AN.forEach(([k, sel]) => w.querySelectorAll(sel).forEach((el, i) => { const r = el.getBoundingClientRect(); if (r.width && r.height) out.push({ id: k + i, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height }); }));
+  return out;
+}
+function inkPick(an, x, y) { // 점을 품은 가장 작은 블록, 없으면 세로로 가장 가까운 블록
+  let best = null, bs = Infinity;
+  an.forEach(b => { const dx = x < b.x ? b.x - x : x > b.x + b.w ? x - b.x - b.w : 0, dy = y < b.y ? b.y - y : y > b.y + b.h ? y - b.y - b.h : 0;
+    const sc = (dx || dy) ? 1e9 + dy * 1e4 + dx : b.w * b.h; if (sc < bs) { bs = sc; best = b; } });
+  return best;
+}
+function inkStroke(ctx, st, off) {
+  const ox = off ? off[0] : 0, oy = off ? off[1] : 0;
+  const p = ox || oy ? st.p.map(q => [q[0] + ox, q[1] + oy]) : st.p; if (!p.length) return;
   ctx.globalCompositeOperation = st.e ? 'destination-out' : 'source-over';
   ctx.strokeStyle = st.c; ctx.lineWidth = st.e ? 22 : 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]);
@@ -822,7 +836,9 @@ function inkScale(cv) { return cv.width / (parseFloat(cv.style.width) || cv.widt
 function inkDraw() {
   const cv = $('#ink'); if (!cv) return; const ctx = cv.getContext('2d'), k = inkScale(cv);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.setTransform(k, 0, 0, k, 0, 0);
-  (INK.s[inkKey()] || []).forEach(st => inkStroke(ctx, st));
+  const L = INK.s[inkKey()] || []; if (!L.length) return;
+  const an = L.some(st => st.a) ? inkAnchors($('#inkw'), cv) : [], at = {}; an.forEach(b => { at[b.id] = b; });
+  L.forEach(st => { const b = st.a && at[st.a]; inkStroke(ctx, st, st.a ? (b ? [b.x, b.y] : st.o) : null); });
 }
 let inkRO = null;
 function inkMount() {
@@ -856,16 +872,17 @@ function inkMount() {
     }
     if (cur) return;
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-    const k = inkKey(); cur = { c: INK.col, e: INK.er, p: [pt(e)], id: e.pointerId, t: e.pointerType }; (INK.s[k] = INK.s[k] || []).push(cur); w.classList.add('hasink'); inkDraw();
+    const k = inkKey(), p0 = pt(e), b = inkPick(inkAnchors(w, cv), p0[0], p0[1]), o = b ? [b.x, b.y] : [0, 0];
+    cur = { c: INK.col, e: INK.er, p: [[p0[0] - o[0], p0[1] - o[1]]], id: e.pointerId, t: e.pointerType, a: b ? b.id : '', o }; (INK.s[k] = INK.s[k] || []).push(cur); w.classList.add('hasink'); inkDraw();
   };
   cv.onpointermove = e => {
     if (e.pointerType === 'pen') penAt = Date.now();
     if (pan && e.pointerId === pan.id) { e.preventDefault(); const dy = e.clientY - pan.y;
       if (pan.go || Math.abs(dy) > 14) { pan.go = true; window.scrollBy(0, -dy); pan.y = e.clientY; } return; }
     if (!cur || e.pointerId !== cur.id) return; e.preventDefault();
-    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; (evs.length ? evs : [e]).forEach(ev => cur.p.push(pt(ev)));
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; (evs.length ? evs : [e]).forEach(ev => { const q = pt(ev); cur.p.push([q[0] - cur.o[0], q[1] - cur.o[1]]); });
     const ctx = cv.getContext('2d'), k = inkScale(cv); ctx.setTransform(k, 0, 0, k, 0, 0);
-    inkStroke(ctx, { c: cur.c, e: cur.e, p: cur.p.slice(-evs.length - 1) });
+    inkStroke(ctx, { c: cur.c, e: cur.e, p: cur.p.slice(-evs.length - 1) }, cur.o);
   };
   cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); if (pan && e.pointerId === pan.id) pan = null; if (cur && e.pointerId === cur.id) cur = null; };
 }
