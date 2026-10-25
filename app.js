@@ -1416,15 +1416,38 @@ addEventListener('scroll', () => { if (HL.pend && HL.pend.sel) hlCheck(); else i
 
 // ── 직접 선택 (iOS 복사·글쓰기 도구 메뉴가 안 뜨게 블록의 기본 텍스트 선택을 끄고 앱이 선택을 처리) ──
 // 손가락·펜: 꾹 눌러 0.4초 → 단어 선택, 그대로 끌면 범위 늘리기 / 마우스: 끌어서 선택. 그냥 쓸어 넘기면 스크롤
-function hlCaret(x, y) {
-  if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
-  if (document.caretPositionFromPoint) { const q = document.caretPositionFromPoint(x, y); if (q) { const r = document.createRange(); r.setStart(q.offsetNode, q.offset); return r; } }
-  return null;
+// 손가락 위치의 글자 찾기: iOS는 글자 선택을 꺼 둔 영역에서 caretRangeFromPoint가 빈 값을 줘서,
+// 잠깐 선택 가능으로 바꿔서 물어보고, 그래도 안 되면 손가락 아래 요소의 글자 위치를 직접 훑는다
+function hlCaret(root, x, y) {
+  let r = null; const st = root.style, u = st.userSelect, wu = st.webkitUserSelect;
+  st.userSelect = 'text'; st.webkitUserSelect = 'text';
+  try {
+    if (document.caretRangeFromPoint) r = document.caretRangeFromPoint(x, y);
+    else if (document.caretPositionFromPoint) { const q = document.caretPositionFromPoint(x, y); if (q) { r = document.createRange(); r.setStart(q.offsetNode, q.offset); } }
+  } catch (e) { r = null; }
+  st.userSelect = u; st.webkitUserSelect = wu;
+  return r && r.startContainer.nodeType === 3 && root.contains(r.startContainer) ? [r.startContainer, r.startOffset] : null;
+}
+function hlCharAt(root, x, y) {
+  let el = document.elementFromPoint(x, y); if (!el || !root.contains(el)) el = root;
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), r = document.createRange(); let best = null, bd = Infinity, n;
+  while ((n = w.nextNode())) {
+    if (n.parentElement && n.parentElement.closest('svg')) continue;
+    for (let i = 0; i < n.data.length; i++) {
+      r.setStart(n, i); r.setEnd(n, i + 1); const q = r.getBoundingClientRect(); if (!q.width && !q.height) continue;
+      const dy = y < q.top ? q.top - y : y > q.bottom ? y - q.bottom : 0, dx = x < q.left ? q.left - x : x > q.right ? x - q.right : 0, d = dy * 1000 + dx;
+      if (d < bd) { bd = d; best = [n, x > (q.left + q.right) / 2 ? i + 1 : i]; }
+      if (!d) break;
+    }
+    if (!bd) break;
+  }
+  return best;
 }
 function hlPointOff(root, x, y) {
-  const r = hlCaret(x, y);
-  if (r && root.contains(r.startContainer)) return hlOff(root, r.startContainer, r.startOffset);
-  const rr = root.getBoundingClientRect(); if (y < rr.top) return 0; if (y > rr.bottom) return root.textContent.length; return null;
+  const rr = root.getBoundingClientRect();
+  if (y < rr.top) return 0; if (y > rr.bottom) return root.textContent.length;
+  const c = hlCaret(root, x, y) || hlCharAt(root, x, y);
+  return c ? hlOff(root, c[0], c[1]) : null;
 }
 function hlRange(root, s, e) {
   const r = document.createRange(); let st = false;
