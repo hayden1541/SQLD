@@ -846,6 +846,12 @@ window.onPencilTap = () => {
   if ((view !== 'quiz' && view !== 'mockrun' && view !== 'concept') || document.getElementById('sheet')) return;
   INK.pen = true; inkToggle(); toast(INK.on ? '필기 켜짐' : '필기 꺼짐');
 };
+function inkUndo() {
+  const l = INK.s[inkKey()]; if (!l || !l.length) return toast('지울 획이 없어요');
+  l.pop(); if (!l.length) { const w = $('#inkw'); if (w) w.classList.remove('hasink'); }
+  inkDraw(); toast('방금 그은 획을 지웠어요');
+}
+document.addEventListener('keydown', e => { if (INK.on && $('#inkw') && (e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); inkUndo(); } });
 function inkBarRefresh() { const b = document.querySelector('.inkbar'); if (b) b.outerHTML = inkBar(); }
 function inkClear() { const w = $('#inkw'); if (!w) return; INK.s[w.dataset.q] = []; inkDraw(); }
 function inkKey() { const w = $('#inkw'); return w ? w.dataset.q : null; }
@@ -898,7 +904,7 @@ function inkMount() {
   cv.addEventListener('touchstart', stopTouch, { passive: false });
   cv.addEventListener('touchmove', stopTouch, { passive: false });
   cv.addEventListener('touchend', stopTouch, { passive: false });
-  let cur = null, pan = null, penAt = 0, holdT = null; const tch = new Set();
+  let cur = null, pan = null, penAt = 0, holdT = null, tp = null, lastTT = 0; const tch = new Set(), tpos = {};
   const snapEnd = c => { const a = c.p[0], b = c.p[c.p.length - 1].slice(), dx = b[0] - a[0], dy = b[1] - a[1];
     if (Math.abs(dy) < Math.abs(dx) * 0.105) b[1] = a[1]; else if (Math.abs(dx) < Math.abs(dy) * 0.105) b[0] = a[0]; // 6도 안쪽이면 가로·세로로 반듯하게
     c.p = [a, b]; };
@@ -912,7 +918,8 @@ function inkMount() {
     inkFl++;
     if (e.pointerType === 'pen') { if (!INK.pen) { let off = false; try { off = localStorage.getItem('sqld_pen') === '0'; } catch (_) {} if (!off) penMode(true); } pan = null; penAt = Date.now(); if (cur && cur.t !== 'pen') dropCur(); }
     else if (e.pointerType === 'touch') {
-      tch.add(e.pointerId);
+      tch.add(e.pointerId); tpos[e.pointerId] = [e.clientX, e.clientY];
+      if (tch.size === 2) tp = { t: Date.now(), moved: false }; else if (tch.size > 2 && tp) tp.moved = true;
       if (tch.size >= 2) { if (cur && cur.t === 'touch') dropCur(); if (!cur && Date.now() - penAt > 600) startPan(e); return; } // 두 손가락: 스크롤
       if (INK.pen) { if (!cur && !pan && Date.now() - penAt > 400) startPan(e); return; } // 펜 모드: 한 손가락은 스크롤, 펜으로 쓰는 중 손바닥은 무시
     }
@@ -923,6 +930,7 @@ function inkMount() {
   };
   cv.onpointermove = e => {
     if (e.pointerType === 'pen') penAt = Date.now();
+    if (tp && tpos[e.pointerId] && Math.hypot(e.clientX - tpos[e.pointerId][0], e.clientY - tpos[e.pointerId][1]) > 12) tp.moved = true;
     if (pan && e.pointerId === pan.id) { e.preventDefault(); const dy = e.clientY - pan.y;
       if (pan.go || Math.abs(dy) > 14) { pan.go = true; window.scrollBy(0, -dy); const tn = performance.now(); pan.v = -dy / Math.max(8, tn - (pan.t || tn - 16)); pan.t = tn; pan.y = e.clientY; } return; }
     if (!cur || e.pointerId !== cur.id) return; e.preventDefault();
@@ -932,7 +940,9 @@ function inkMount() {
     const ctx = cv.getContext('2d'), k = inkScale(cv); ctx.setTransform(k, 0, 0, k, 0, 0);
     inkStroke(ctx, { c: cur.c, e: cur.e, p: cur.p.slice(-evs.length - 1) }, cur.o);
   };
-  cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); if (pan && e.pointerId === pan.id) { if (pan.go && pan.t && performance.now() - pan.t < 80) inkFling(pan.v || 0); pan = null; } if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; cur = null; } };
+  cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); delete tpos[e.pointerId];
+    if (tp && !tch.size) { if (!tp.moved && Date.now() - tp.t < 350 && e.type === 'pointerup') { if (Date.now() - lastTT < 500) { lastTT = 0; inkUndo(); } else lastTT = Date.now(); } tp = null; }
+    if (pan && e.pointerId === pan.id) { if (pan.go && pan.t && performance.now() - pan.t < 80) inkFling(pan.v || 0); pan = null; } if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; cur = null; } };
 }
 // 필기 중에는 필기 도구 말고는 아무것도 눌리지 않게 (보기·버튼·상단 버튼 포함)
 window.addEventListener('click', e => {
@@ -1547,7 +1557,7 @@ function guidePages() {
     { t: '필기와 형광펜', d: '아이패드에서 애플펜슬로 문제 위에 바로 써요.', li: [
       '문제 오른쪽 위 <b>✎ 필기</b>를 누르면 필기 모드예요. 다 쓰면 <b>완료</b>를 눌러야 보기를 고를 수 있어요.',
       '펜으로 한 번 쓰면 <b>펜 모드</b>가 켜져서 손가락은 스크롤만 돼요. 설정에서 끌 수 있어요.',
-      '선을 긋다가 펜을 떼지 않고 잠깐 멈추면 <b>직선</b>으로 바뀌어요.',
+      '선을 긋다가 펜을 떼지 않고 잠깐 멈추면 <b>직선</b>으로 바뀌어요. 잘못 그었으면 <b>두 손가락으로 두 번 톡톡</b> 치면 방금 그은 획이 지워져요.',
       '형광펜은 글자를 <b>꾹 눌러</b> 단어를 고르고, 끌어서 범위를 늘린 뒤 색을 누르면 돼요. 칠한 곳을 누르면 색 바꾸기·지우기가 나와요.'] },
     { t: '개념 · 실습 · 정리', d: '문제만 풀지 말고 개념 탭도 같이 보세요.', li: [
       '개념 탭은 1·2과목을 노선도처럼 그려 놨어요. 초록으로 채워진 역은 통과, 빨간 역은 약한 개념이에요.',
