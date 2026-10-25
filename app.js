@@ -477,7 +477,7 @@ function renderTabs() {
 function render() {
   renderTabs();
   if (!S.cause) S.cause = {};
-  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab }[view];
+  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
   hlHide(); hlMount($('#app'));
   inkMount();
@@ -539,7 +539,7 @@ function home() {
   </div><div class="hr">
   <h2>전체 노선도 <span class="sub">개념 ${CONCEPTS.length}개</span></h2>
   ${routeMap()}
-  <div class="list links">${[['go(\'mock\')', '실전 모의고사', '50문항 · 90분'], ['go(\'cram\')', '시험 직전 정리', '함정과 핵심만'], ['openLab()', 'SQL 실습장', 'EMP · DEPT'], ['go(\'flash\')', '플래시카드', fl + '장']].map(([f, l, r]) => `<div class="it" onclick="${f}"><span>${l}</span><span class="sub">${r} ›</span></div>`).join('')}</div>
+  <div class="list links">${[['go(\'mock\')', '실전 모의고사', '50문항 · 90분'], ['go(\'cram\')', '시험 직전 정리', '함정과 핵심만'], ['openLab()', 'SQL 실습장', 'EMP · DEPT'], ['go(\'flash\')', '플래시카드', fl + '장'], ['go(\'guide\')', '사용설명서', '처음 쓰는 법']].map(([f, l, r]) => `<div class="it" onclick="${f}"><span>${l}</span><span class="sub">${r} ›</span></div>`).join('')}</div>
   </div></div>`;
 }
 
@@ -1152,6 +1152,7 @@ function flAns(k) { const [si, ci] = FC.list[FC.i]; if (k) S.fl[si + '-' + ci] =
 function settings() {
   return `<button class="icon-btn" onclick="go('home')">← 홈</button><h1>설정</h1>
   ${syncCard()}
+  <div class="card" onclick="go('guide')" style="cursor:pointer"><div class="top"><b>사용설명서</b><span class="sub">처음 쓰는 법 ›</span></div></div>
   <div class="card"><b>시험일</b><input type="date" value="${S.set.exam}" onchange="S.set.exam=this.value;save()">
   <b style="display:block;margin-top:12px">하루 목표 문항 수</b><input type="number" min="5" max="200" value="${S.set.goal}" onchange="S.set.goal=Math.max(5,+this.value||30);save()"></div>
   <div class="card"><b>문제 풀이</b>
@@ -1494,3 +1495,61 @@ document.addEventListener('pointerup', e => { const s = HS.st; clearTimeout(HS.t
 document.addEventListener('pointercancel', () => { clearTimeout(HS.t); if (HS.on) hlEnd(); HS.st = null; }, true);
 document.addEventListener('touchmove', e => { if (HS.on) e.preventDefault(); }, { passive: false });
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-hk]')) e.preventDefault(); });
+
+// ───────── 사용설명서 ─────────
+function guidePages() {
+  const kc = BANK.some(q => GRP(q) === 'k');
+  return [
+    { t: '오늘 풀 문제부터', d: '홈 화면 맨 위가 오늘 할 일이에요.', li: [
+      '<b>오답 복습 → 잊어 가는 문제 → 약한 개념 새 문제</b> 순서로 하루 목표 개수만큼 골라 줘요. 주황 버튼 하나로 다 풀면 됩니다.',
+      '역(줄) 하나만 누르면 그 부분만 풀 수 있어요.',
+      '틀린 문제는 1일·3일·7일 뒤에 다시 나오고, 세 번 맞히면 오답노트에서 빠져요.',
+      '"지금 시험을 보면 몇 점"은 개념별 정답률과 실제 출제 비중으로 계산한 예상 점수예요. 누르면 과목별 점수와 점수 올리기 좋은 개념이 나와요.'] },
+    { t: '문제 풀기', d: '문제 탭에서 묶음으로 고르거나 조건을 직접 정해 풀어요.', li: [
+      (kc ? '핵심기출, ' : '') + '기출변형(회차별), 실전형, 노랭이 스타일, 난이도별 묶음이 있어요.',
+      '채점하면 <b>보기마다 왜 틀렸는지</b>, 핵심개념, 꿀팁이 같이 나와요. 해설 속 파란 문제 번호를 누르면 그 문제를 바로 볼 수 있어요.',
+      '맞힌 문제는 <b>확실 · 애매 · 찍음</b>, 틀린 문제는 <b>원인</b>을 눌러 두세요. 찍어서 맞힌 건 모르는 문제로 치고 다시 나와요.',
+      '풀다가 나가도 이어서 풀 수 있어요. 키보드가 있으면 1~4로 고르고 Enter로 채점해요.'] },
+    { t: '필기와 형광펜', d: '아이패드에서 애플펜슬로 문제 위에 바로 써요.', li: [
+      '문제 오른쪽 위 <b>✎ 필기</b>를 누르면 필기 모드예요. 다 쓰면 <b>완료</b>를 눌러야 보기를 고를 수 있어요.',
+      '펜으로 한 번 쓰면 <b>펜 모드</b>가 켜져서 손가락은 스크롤만 돼요. 설정에서 끌 수 있어요.',
+      '선을 긋다가 펜을 떼지 않고 잠깐 멈추면 <b>직선</b>으로 바뀌어요.',
+      '형광펜은 글자를 <b>꾹 눌러</b> 단어를 고르고, 끌어서 범위를 늘린 뒤 색을 누르면 돼요. 칠한 곳을 누르면 색 바꾸기·지우기가 나와요.'] },
+    { t: '개념 · 실습 · 정리', d: '문제만 풀지 말고 개념 탭도 같이 보세요.', li: [
+      '개념 탭은 1·2과목을 노선도처럼 그려 놨어요. 초록으로 채워진 역은 통과, 빨간 역은 약한 개념이에요.',
+      '개념을 누르면 요약, 표와 SQL 예시가 있는 정리, 함정이 나오고 <b>이 개념 문제 전부</b>를 바로 풀 수 있어요.',
+      '<b>SQL 실습장</b>에서 EMP·DEPT로 쿼리를 직접 돌려 봐요. 문제를 푼 뒤 "SQL 실행해 보기"를 누르면 그 SQL이 그대로 들어가요.',
+      '<b>시험 직전 정리</b>는 점수 영향이 큰 개념 순서로 함정과 핵심만 모아 둔 화면이에요. 플래시카드도 홈에서 열 수 있어요.'] },
+    { t: '모의고사와 분석', d: '실력 확인은 모의고사로, 약점은 분석 탭으로.', li: [
+      '<b>실전 모의고사</b>는 1과목 10 + 2과목 40, 90분이에요. 60점 이상이면서 과목별 40% 이상이어야 합격으로 쳐요.',
+      '끝나면 많이 틀린 개념 순서로 다시 풀기와 10문항 더 풀기를 바로 할 수 있어요.',
+      '분석 탭에서 예상 점수, 과목·난이도별 정답률, 학습 달력, 오답 원인 통계를 볼 수 있어요.'] },
+    { t: '기록 저장', d: '풀이 기록은 이 기기에 저장돼요.', li: [
+      '여러 기기에서 같은 기록을 쓰려면 <b>설정 → 구글 계정 연동</b>에서 로그인하세요. 풀 때마다 자동으로 저장돼요.',
+      '홈 화면에 추가한 앱에서는 구글 창이 막혀요. Safari에서 구글로 로그인한 뒤 <b>앱용 비밀번호</b>를 만들고, 홈 화면 앱에서는 지메일과 그 비밀번호로 로그인하세요.',
+      '로그인 없이 옮기려면 설정의 <b>백업 코드</b>를 쓰면 돼요.',
+      '앱처럼 쓰려면 Safari 공유 버튼 → <b>홈 화면에 추가</b>. 새 버전이 안 보이면 설정의 "최신 버전으로 새로고침"을 누르세요.'] }
+  ];
+}
+let GD = 0;
+function guideOff() { try { return localStorage.getItem('sqld_guide_off') === '1'; } catch (e) { return false; } }
+function guideSet(off) { try { localStorage.setItem('sqld_guide_off', off ? '1' : '0'); } catch (e) {} }
+function guideHTML() {
+  const P = guidePages(), p = P[GD], last = GD === P.length - 1;
+  return `<div class="gd"><div class="gd-top"><span class="sub">사용설명서 ${GD + 1} / ${P.length}</span><button class="icon-btn" onclick="closeSheet()">닫기</button></div>
+  <h2 class="gd-t">${p.t}</h2><div class="sub">${p.d}</div>
+  <ul class="gd-li">${p.li.map(x => `<li>${x}</li>`).join('')}</ul>
+  <div class="gd-dots">${P.map((_, i) => `<i class="${i === GD ? 'on' : ''}" onclick="GD=${i};guideDraw()"></i>`).join('')}</div>
+  <div class="grid2"><button class="btn line" ${GD ? '' : 'disabled'} onclick="GD--;guideDraw()">이전</button>${last ? `<button class="btn" onclick="closeSheet()">시작하기</button>` : `<button class="btn" onclick="GD++;guideDraw()">다음</button>`}</div>
+  <label class="setrow gd-off"><input type="checkbox" ${guideOff() ? 'checked' : ''} onchange="guideSet(this.checked)"> 다시 보지 않기 <span class="sub">홈 아래 '사용설명서'나 설정에서 언제든 다시 볼 수 있어요</span></label></div>`;
+}
+function guideDraw() { const s = document.querySelector('#sheet .sheet'); if (s) s.innerHTML = '<div class="grab"></div>' + guideHTML(); }
+function guideOpen() { GD = 0; sheet(guideHTML()); }
+function guide() {
+  return `<button class="icon-btn" onclick="go('home')">← 홈</button><h1>사용설명서</h1>
+  <div class="sub" style="margin-bottom:6px">처음 쓰는 법을 한 화면에 모았어요. <button class="whytog" style="padding:0" onclick="guideOpen()">넘겨 보기</button></div>
+  ${guidePages().map((p, i) => `<section class="gd-sec"><h2>${i + 1}. ${p.t}</h2><div class="sub">${p.d}</div><ul class="gd-li">${p.li.map(x => `<li>${x}</li>`).join('')}</ul></section>`).join('')}
+  <label class="setrow" style="margin-top:20px"><input type="checkbox" ${guideOff() ? '' : 'checked'} onchange="guideSet(!this.checked)"> 앱을 열 때 사용설명서 보여 주기</label>`;
+}
+// 앱을 열 때: '다시 보지 않기'를 체크하기 전까지 매번 (자동 테스트 브라우저에서는 띄우지 않음)
+if (!guideOff() && !navigator.webdriver) setTimeout(() => { if (view === 'home' && !$('#sheet')) guideOpen(); }, 500);
