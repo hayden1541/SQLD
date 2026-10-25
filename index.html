@@ -388,6 +388,17 @@ mark.hl{color:inherit;border-radius:3px;padding:1px 0;-webkit-box-decoration-bre
 @keyframes spPop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
 @keyframes spUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){#splash *{animation:none!important;opacity:1!important;stroke-dashoffset:0!important}}
+
+.kb-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kstar{font-size:12.5px;color:var(--sub);padding:2px 0 2px 8px;white-space:nowrap}
+.kstar.on{color:var(--today);font-weight:700}
+.kkc .kkq{font-size:13px;margin-bottom:6px;cursor:pointer}
+.kkc .sum{margin:4px 0}
+.kktip{font-size:14px;line-height:1.55;margin-top:6px}.kktip > b{color:var(--warn);font-size:12.5px;margin-right:4px}
+.kkr{flex-wrap:wrap;gap:0;margin-top:8px}
+.kkc.hide .kkb{position:relative;cursor:pointer;border-radius:10px}
+.kkc.hide .kkb:not(.show) > *{filter:blur(7px);opacity:.55;pointer-events:none;user-select:none}
+.kkc.hide .kkb:not(.show)::after{content:'눌러서 보기';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;color:var(--ink)}
 </style>
 </head>
 <body>

@@ -503,13 +503,13 @@ function renderTabs() {
   const hide = view === 'quiz' || view === 'mockrun' || view === 'lab';
   $('#tabbar').style.display = hide ? 'none' : 'flex';
   document.body.style.paddingBottom = hide ? 'env(safe-area-inset-bottom)' : '';
-  const root = { home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats', cram: 'home', lab: 'concepts' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
+  const root = { kknote: 'wrong', guide: 'home', home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats', cram: 'home', lab: 'concepts' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
   $('#tabbar').innerHTML = TABS.map(([k, l, ic]) => `<button class="${root === k ? 'on' : ''}" onclick="go('${k}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}</button>`).join('');
 }
 function render() {
   renderTabs();
   if (!S.cause) S.cause = {};
-  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide }[view];
+  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide, kknote }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
   hlHide(); hlMount($('#app'));
   inkMount();
@@ -571,7 +571,7 @@ function home() {
   </div><div class="hr">
   <h2>전체 노선도 <span class="sub">개념 ${CONCEPTS.length}개</span></h2>
   ${routeMap()}
-  <div class="list links">${[['go(\'mock\')', '실전 모의고사', '50문항 · 90분'], ['go(\'cram\')', '시험 직전 정리', '함정과 핵심만'], ['openLab()', 'SQL 실습장', 'EMP · DEPT'], ['go(\'flash\')', '플래시카드', fl + '장'], ['go(\'guide\')', '사용설명서', '처음 쓰는 법']].map(([f, l, r]) => `<div class="it" onclick="${f}"><span>${l}</span><span class="sub">${r} ›</span></div>`).join('')}</div>
+  <div class="list links">${[['go(\'mock\')', '실전 모의고사', '50문항 · 90분'], ['go(\'cram\')', '시험 직전 정리', '함정과 핵심만'], ['openLab()', 'SQL 실습장', 'EMP · DEPT'], ['go(\'flash\')', '플래시카드', fl + '장'], ['go(\'kknote\')', '다시 볼 핵심개념', kkIds().length + '개'], ['go(\'guide\')', '사용설명서', '처음 쓰는 법']].map(([f, l, r]) => `<div class="it" onclick="${f}"><span>${l}</span><span class="sub">${r} ›</span></div>`).join('')}</div>
   </div></div>`;
 }
 
@@ -975,6 +975,7 @@ function wrong() {
   ids.forEach(id => { const c = QMAP[id].c; (g[c] = g[c] || []).push(id); });
   const keys = Object.keys(g).sort((a, b) => g[b].length - g[a].length);
   return `<h1>오답노트</h1><div class="sub">틀린 문제와 헷갈림 표시한 문제 ${ids.length}개 · 날짜를 두고 3번 맞히면 빠져요</div>
+  <div class="list links" style="margin:8px 0 4px"><div class="it" onclick="go('kknote')"><span>다시 볼 핵심개념</span><span class="sub">${kkIds().length}개 ›</span></div></div>
   ${rvCard(1)}
   ${(() => { const x = resumeInfo('wrong'); if (!x) return ''; const done = x.r.i, tot = x.r.ids.length, ok = Object.values(x.r.res || {}).filter(Boolean).length;
     return `<div class="card"><div class="top"><b>풀던 오답 이어서</b><span class="sub">${esc(x.r.title)}</span></div>
@@ -1004,7 +1005,7 @@ function qref(h, self) {
   });
 }
 function plusH(q) {
-  return (q.kk ? `<div class="kbox"><b>핵심개념</b><ul data-hk="q_${q.id}:k">${q.kk.map(x => `<li>${qref(md(x), q.id)}</li>`).join('')}</ul></div>` : '') +
+  return (q.kk ? `<div class="kbox"><div class="kb-h"><b>핵심개념</b>${kkBtn(q.id)}</div><ul data-hk="q_${q.id}:k">${q.kk.map(x => `<li>${qref(md(x), q.id)}</li>`).join('')}</ul></div>` : '') +
     (q.tip ? `<div class="tipbox"><b>꿀팁</b> <span data-hk="q_${q.id}:t">${qref(md(q.tip), q.id)}</span></div>` : '');
 }
 function whyTog() { return `<div class="why-hint"><button class="whytog" onclick="S.set.whyFold=!S.set.whyFold;save();render()">${S.set.whyFold ? '▾ 보기별 오답 이유 모두 펼치기' : '▴ 오답 이유 접기 (고른 보기만 남김)'}</button></div>`; }
@@ -1301,7 +1302,7 @@ function mergeState(a, b) {
   Object.entries(b.att || {}).forEach(([k, x]) => { const y = m.att[k]; if (!y || x.n > y.n || (x.n === y.n && (x.lr || x.last || '') > (y.lr || y.last || ''))) m.att[k] = x; });
   m.days = Object.assign({}, a.days);
   Object.entries(b.days || {}).forEach(([k, x]) => { const y = m.days[k]; if (!y || x.n > y.n) m.days[k] = x; });
-  ['conf', 'cdone', 'fl', 'cause', 'hl'].forEach(k => { m[k] = Object.assign({}, od[k] || {}, nw[k] || {}); });
+  ['conf', 'cdone', 'fl', 'cause', 'hl', 'kk'].forEach(k => { m[k] = Object.assign({}, od[k] || {}, nw[k] || {}); });
   const seen = new Set(), key = x => [x.date, x.total, x.s1, (x.ids || []).slice(0, 5).join(',')].join('|');
   m.mocks = [...(a.mocks || []), ...(b.mocks || [])].filter(x => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
@@ -1363,7 +1364,7 @@ async function fbSetPw() {
 }
 function syncCard() {
   if (!fbOn()) return '';
-  const u = SYNC.user, sa = isStandalone(), hm = t => { const d = new Date(t); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const u = SYNC.user, sa = isStandalone() && isIOS(), hm = t => { const d = new Date(t); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const pwForm = `<input id="fbem" type="email" autocomplete="username" placeholder="지메일 주소" style="margin-bottom:8px">
     <input id="fbpw" type="password" autocomplete="current-password" placeholder="앱용 비밀번호" style="margin-bottom:10px">
     <button class="btn" onclick="fbPwLogin()">로그인</button>
@@ -1553,6 +1554,7 @@ function guidePages() {
       (kc ? '핵심기출, ' : '') + '기출변형(회차별), 실전형, 노랭이 스타일, 난이도별 묶음이 있어요.',
       '채점하면 <b>보기마다 왜 틀렸는지</b>, 핵심개념, 꿀팁이 같이 나와요. 해설 속 파란 문제 번호를 누르면 그 문제를 바로 볼 수 있어요.',
       '맞힌 문제는 <b>확실 · 애매 · 찍음</b>, 틀린 문제는 <b>원인</b>을 눌러 두세요. 찍어서 맞힌 건 모르는 문제로 치고 다시 나와요.',
+      '모르는 핵심개념은 칸 오른쪽 위 <b>☆ 다시보기</b>를 눌러 두세요. 오답 탭의 "다시 볼 핵심개념"에 개념별로 모이고, 가려 놓고 외울 수도 있어요.',
       '풀다가 나가도 이어서 풀 수 있어요. 키보드가 있으면 1~4로 고르고 Enter로 채점해요.'] },
     { t: '필기와 형광펜', d: '아이패드에서 애플펜슬로 문제 위에 바로 써요.', li: [
       '문제 오른쪽 위 <b>✎ 필기</b>를 누르면 필기 모드예요. 다 쓰면 <b>완료</b>를 눌러야 보기를 고를 수 있어요.',
@@ -1599,3 +1601,33 @@ function guide() {
 if (!guideOff() && !navigator.webdriver) afterSplash(() => setTimeout(() => { if (view === 'home' && !$('#sheet')) guideOpen(); }, 250));
 
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => themeApply(themeGet())); } catch (e) {}
+
+// ───────── 핵심개념 다시보기 ─────────
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function kkIds() { const K = S.kk || {}; return Object.keys(K).map(Number).filter(id => QMAP[id] && QMAP[id].kk).sort((x, y) => (K[y] || '').localeCompare(K[x] || '') || x - y); }
+function kkBtn(id) { const on = !!(S.kk || {})[id]; return `<button class="kstar ${on ? 'on' : ''}" data-q="${id}" onclick="event.stopPropagation();kkTog(${id})">${on ? '★ 다시보기에 있음' : '☆ 다시보기'}</button>`; }
+function kkTog(id) {
+  S.kk = S.kk || {}; const on = !S.kk[id];
+  if (on) S.kk[id] = today(); else delete S.kk[id];
+  save();
+  document.querySelectorAll(`.kstar[data-q="${id}"]`).forEach(b => { b.outerHTML = kkBtn(id); });
+  toast(on ? '다시 볼 핵심개념에 넣었어요' : '다시보기에서 뺐어요');
+  if (view === 'kknote') render();
+}
+let KKH = false;
+function kknote() {
+  const ids = kkIds(), g = {};
+  ids.forEach(id => { const c = QMAP[id].c; (g[c] = g[c] || []).push(id); });
+  const order = CONCEPTS.map(c => c.id).filter(c => g[c]);
+  return `<button class="icon-btn" onclick="go('wrong')">← 오답노트</button><h1>다시 볼 핵심개념</h1>
+  <div class="sub">문제를 풀고 핵심개념 칸의 ☆를 누르면 여기 모여요. 개념별로 정리했어요.</div>
+  ${ids.length ? `<div class="seg" style="margin:12px 0 4px"><button class="${KKH ? '' : 'on'}" onclick="KKH=false;render()">전체 보기</button><button class="${KKH ? 'on' : ''}" onclick="KKH=true;render()">가리고 외우기</button></div>
+  ${KKH ? '<div class="sub" style="font-size:12.5px">가려진 칸을 누르면 내용이 보여요.</div>' : ''}
+  ${order.map(c => `<h2><span class="tag lt${CMAP[c].s}">${CMAP[c].s}과목</span> ${esc(CMAP[c].name)} <span class="sub">${g[c].length}</span></h2>
+    ${g[c].map(id => { const q = QMAP[id]; return `<div class="card kkc ${KKH ? 'hide' : ''}">
+      <div class="sub kkq" onclick="peek(${id})">${esc(q.q.length > 70 ? q.q.slice(0, 70) + '…' : q.q)} <span style="opacity:.7">#${id}</span></div>
+      <div class="kkb" onclick="this.classList.add('show')"><ul class="sum" data-hk="q_${id}:k">${q.kk.map(x => `<li>${qref(md(x), id)}</li>`).join('')}</ul>${q.tip ? `<div class="kktip"><b>꿀팁</b> <span data-hk="q_${id}:t">${qref(md(q.tip), id)}</span></div>` : ''}</div>
+      <div class="row kkr"><button class="chip c" onclick="peek(${id})">문제 보기</button><button class="chip" onclick="go('concept',{id:'${c}'})">개념 보기</button><button class="chip" onclick="kkTog(${id})">외웠어요 · 빼기</button></div></div>`; }).join('')}`).join('')}
+  <button class="btn" style="margin-top:16px" onclick="startPractice({ids:[${ids.join(',')}],order:'rand',n:${ids.length},title:'다시 볼 핵심개념 문제'})">이 문제들 다시 풀기 (${ids.length})</button>`
+  : `<div class="card sub" style="margin-top:14px">아직 저장한 핵심개념이 없어요. 문제를 채점한 뒤 핵심개념 칸 오른쪽 위의 <b>☆ 다시보기</b>를 눌러 보세요.</div>`}`;
+}
