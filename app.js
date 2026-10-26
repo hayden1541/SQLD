@@ -333,7 +333,7 @@ function recIds(n) {
 }
 function startRec() {
   const r = recIds(); if (!r.ids.length) return toast('추천할 문제가 없어요');
-  INK.s = {}; QS = { ids: shuffle(r.ids), i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: '망각곡선 추천' }; go('quiz');
+  INK.s = inkKeepC(); QS = { ids: shuffle(r.ids), i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: '망각곡선 추천' }; go('quiz');
 }
 function recCard() {
   const m = memInfo(), r = recIds();
@@ -406,7 +406,7 @@ const lvl = v => v == null ? '' : v < 0.6 ? 'low' : v < 0.8 ? 'mid' : 'high';
 // ───────── 유틸 ─────────
 const $ = s => document.querySelector(s);
 function esc(t) { return String(t).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
-function md(t) { return esc(t).replace(/__([^_\s][^_]*?)__/g, '<u>$1</u>').replace(/\*\*(?=[^*]*[0-9A-Za-z가-힣])([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>'); }
+function md(t) { return esc(t).replace(/__([^_\s][^_]*?)__/g, '<u>$1</u>').replace(/\*\*(?=[^*]*[0-9A-Za-z가-힣])([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\{\{(ie|r|self):([^}]*)\}\}/g, (m, k, x) => erdInline(k, x.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'))); }
 // ───────── 표기법 그림 (SVG) ─────────
 // ie|A|끝A|끝B|B|s/d   끝 = (최소)(최대), 선에서 엔터티 쪽으로 읽음: 11 o1 1< o< -< o- 등
 // end|B|끝   bk|엔터티|#속성,*속성,o속성   bkrel|A|B|A점선|B점선|B까마귀발   chen|A|관계|B|A속성,..|B속성,..
@@ -423,7 +423,7 @@ function figEnd(edge, y, d, s) {
   else if (mn === 'o') o += `<circle cx="${edge + d * mo}" cy="${y}" r="5.5" fill="var(--card)" ${FS}/>`;
   return o;
 }
-function figSVG(spec, small) {
+function figSVGOld(spec, small) {
   const p = spec.split('|'), k = p[0]; let w = 340, h = 64, b = '';
   if (k === 'ie') {
     const [, A, ea, eb, B, ln] = p, y = 32, bw = 84;
@@ -546,10 +546,10 @@ function todayPlan() {
 }
 function startPlan(k) {
   const p = todayPlan();
-  if (k === 'wr') { if (!p.wr.length) return toast('오늘 복습할 문제가 없어요'); INK.s = {}; QS = { ids: shuffle(p.wr), i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '오늘 복습' }; return go('quiz'); }
+  if (k === 'wr') { if (!p.wr.length) return toast('오늘 복습할 문제가 없어요'); INK.s = inkKeepC(); QS = { ids: shuffle(p.wr), i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '오늘 복습' }; return go('quiz'); }
   const ids = k === 'rev' ? shuffle(p.rev) : k === 'fresh' ? p.fresh.slice() : [...shuffle(p.wr), ...shuffle([...p.rev, ...p.fresh])];
   if (!ids.length) return toast('지금 풀 문제가 없어요');
-  INK.s = {}; QS = { ids, i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: { rev: '잊어 가는 문제', fresh: '약한 개념 새 문제' }[k] || '오늘의 문제' }; go('quiz');
+  INK.s = inkKeepC(); QS = { ids, i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: { rev: '잊어 가는 문제', fresh: '약한 개념 새 문제' }[k] || '오늘의 문제' }; go('quiz');
 }
 function home() {
   const td = S.days[today()] || { n: 0, c: 0 }, dd = dday(), p = todayPlan(), goal = S.set.goal, sk = streakDays();
@@ -716,11 +716,11 @@ function startPractice(o) {
   else pool = shuffle(pool);
   const ids = pool.slice(0, o.n).map(q => q.id);
   if (!ids.length) return toast('조건에 맞는 문제가 없어요');
-  INK.s = {};
+  INK.s = inkKeepC();
   QS = { ids, i: 0, mode: o.mode || 'practice', res: {}, pick: null, shown: false, title: o.title || '문제 풀기' };
   go('quiz');
 }
-function startReview() { const ids = shuffle(dueIds()); if (!ids.length) return toast('오늘 복습할 문제가 없어요'); INK.s = {}; QS = { ids, i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '오늘 복습' }; go('quiz'); }
+function startReview() { const ids = shuffle(dueIds()); if (!ids.length) return toast('오늘 복습할 문제가 없어요'); INK.s = inkKeepC(); QS = { ids, i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '오늘 복습' }; go('quiz'); }
 function rvCard(inWrong) {
   const dn = dueIds().length, nx = nextDue();
   if (dn) return `<div class="card rvcard"><div class="top"><b>오늘 복습할 오답 ${dn}개</b><span class="sub">1일 · 3일 · 7일 간격</span></div>
@@ -826,6 +826,19 @@ function tblBlock(q, always) {
 
 // ───────── 필기 ─────────
 const INK = { on: false, col: '#e5484d', er: false, s: {}, pen: false };
+// 개념 필기 보존: 이 기기에 저장 (문제 필기는 풀이를 새로 시작하면 비움)
+const INK_CK = 'sqld_ink_c';
+try { const sv = JSON.parse(localStorage.getItem(INK_CK) || '{}'); Object.keys(sv).forEach(k => { if (/^c_/.test(k) && Array.isArray(sv[k])) INK.s[k] = sv[k]; }); } catch (e) {}
+function inkKeepC() { const o = {}; Object.keys(INK.s).forEach(k => { if (/^c_/.test(k)) o[k] = INK.s[k]; }); return o; }
+let inkSvT = 0;
+function inkSaveSoon() { clearTimeout(inkSvT); inkSvT = setTimeout(inkSaveC, 500); }
+function inkSaveC() {
+  const r = v => Math.round(v * 10) / 10, o = {};
+  Object.keys(INK.s).forEach(k => { const L = INK.s[k]; if (!/^c_/.test(k) || !L || !L.length) return;
+    o[k] = L.map(st => { const x = { c: st.c, p: st.p.map(q => [r(q[0]), r(q[1])]) }; if (st.e) x.e = 1; if (st.a) { x.a = st.a; x.o = (st.o || [0, 0]).map(r); } return x; }); });
+  try { localStorage.setItem(INK_CK, JSON.stringify(o)); } catch (e) { toast('필기를 저장할 공간이 부족해요'); }
+}
+window.addEventListener('pagehide', () => { clearTimeout(inkSvT); inkSaveC(); });
 try { if (localStorage.getItem('sqld_pen') === '1') INK.pen = true; } catch (e) {}
 function penMode(on) { INK.pen = on; try { localStorage.setItem('sqld_pen', on ? '1' : '0'); } catch (e) {} }
 let inkFl = 0;
@@ -883,6 +896,7 @@ function inkStroke(ctx, st, off) {
 // 캔버스 픽셀 배율 (iOS 캔버스 면적 한도 16.7M 픽셀 안으로)
 function inkScale(cv) { return cv.width / (parseFloat(cv.style.width) || cv.width || 1); }
 function inkDraw() {
+  if (/^c_/.test(inkKey())) inkSaveSoon();
   const cv = $('#ink'); if (!cv) return; const ctx = cv.getContext('2d'), k = inkScale(cv);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.setTransform(k, 0, 0, k, 0, 0);
   const L = INK.s[inkKey()] || []; if (!L.length) return;
@@ -1035,7 +1049,7 @@ function conceptBody(c, inSheet) {
   return `<div class="qmeta"><span class="tag lt${c.s}">${c.s}과목</span>${esc(c.unit)}</div><h1 style="font-size:22px">${esc(c.name)}</h1>
   <div class="row" style="margin:6px 0 4px"><span class="pill">정답률 ${pct(st.acc)}</span><span class="sub">${st.solved}/${st.total}문항 풀이</span></div>
   <ul class="sum" data-hk="c_${c.id}:s">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
-  ${figs(c)}${c.ex ? `<pre class="code">${esc(c.ex.join('\n'))}</pre>` : ''}
+  ${c.erdTop ? erdBlock(c.erdTop, { cap: c.capTop }) : ''}${figs(c)}${c.erd ? erdBlock(c.erd, { cap: c.cap }) : ''}${c.tree ? treeBlock(c.tree, { cap: c.tcap }) : ''}${c.ex ? `<pre class="code">${esc(c.ex.join('\n'))}</pre>` : ''}
   ${moreHTML(c)}
   ${c.trap ? `<div class="trap" data-hk="c_${c.id}:t"><b>함정</b><br>${c.trap.map(md).join('<br>')}</div>` : ''}
   ${inSheet ? '' : `<div class="grid2" style="margin-top:14px">
@@ -1050,7 +1064,7 @@ function moreHTML(c) {
   const tb = (t, cls) => `<div class="otb"><table class="t ${cls}"><tr>${t.cols.map(x => `<th>${md(x)}</th>`).join('')}</tr>${t.rows.map(r => '<tr>' + r.map(x => `<td>${cell(x)}</td>`).join('') + '</tr>').join('')}</table></div>`;
   return `<div class="more" data-hk="c_${c.id}:m"><div class="more-h">개념 정리</div>${B.map(b =>
     b.h ? `<h3>${md(b.h)}</h3>` : b.p ? `<p>${md(b.p)}</p>` : b.li ? `<ul>${b.li.map(x => `<li>${md(x)}</li>`).join('')}</ul>` :
-    b.t ? tb(b.t, 'mt') : b.code ? `<pre class="code">${esc(b.code.join('\n'))}</pre>${b.out ? `<div class="mout"><span>실행 결과${b.out.rows.length ? '' : ' · 0건'}</span>${b.out.rows.length ? tb(b.out, 'mo') : ''}</div>` : ''}` : '').join('')}</div>`;
+    b.erd ? erdBlock(b.erd, { cap: b.cap }) : b.tree ? treeBlock(b.tree, { cap: b.cap }) : b.t ? tb(b.t, 'mt') : b.code ? `<pre class="code">${esc(b.code.join('\n'))}</pre>${b.out ? `<div class="mout"><span>실행 결과${b.out.rows.length ? '' : ' · 0건'}</span>${b.out.rows.length ? tb(b.out, 'mo') : ''}</div>` : ''}` : '').join('')}</div>`;
 }
 function concept() {
   const k = 'c_' + P.id;
@@ -1101,7 +1115,7 @@ function pickMix(pool, n) {
 }
 function startMock() {
   const ids = [...pickMix(BANK.filter(q => CMAP[q.c].s === 1), 10), ...pickMix(BANK.filter(q => CMAP[q.c].s === 2), 40)];
-  INK.s = {};
+  INK.s = inkKeepC();
   MK_S = { ids, i: 0, ans: {}, end: Date.now() + 90 * 60 * 1000 };
   go('mockrun');
   timerId = setInterval(() => { const el = $('#mt'); if (!MK_S) return; const left = MK_S.end - Date.now(); if (left <= 0) { submitMock(true); return; } if (el) el.textContent = fmtT(left); }, 1000);
@@ -1166,7 +1180,7 @@ function mockresult() {
   <button class="btn line" style="margin-top:10px" onclick="go('home')">홈으로</button>`;
 }
 function mrWrongIds(cid) { const r = MR, ans = r.ans || {}; const l = (r.ids || []).filter(id => ans[id] !== QMAP[id].a); return (r.ids ? l : (r.wrongs || [])).filter(id => !cid || QMAP[id].c === cid); }
-function mrWrong(cid) { const ids = mrWrongIds(cid); if (!ids.length) return; INK.s = {}; QS = { ids, i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '모의고사 오답' + (cid ? ' · ' + CMAP[cid].name : '') }; go('quiz'); }
+function mrWrong(cid) { const ids = mrWrongIds(cid); if (!ids.length) return; INK.s = inkKeepC(); QS = { ids, i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '모의고사 오답' + (cid ? ' · ' + CMAP[cid].name : '') }; go('quiz'); }
 function mrDrill(cid) { startPractice({ cs: [cid], n: 10, order: 'new', title: CMAP[cid].name + ' 10문항' }); }
 // 지난 모의고사들에서 자주 틀린 개념
 function mockWeak() {
@@ -1633,16 +1647,18 @@ function kknote() {
   <button class="btn" style="margin-top:16px" onclick="startPractice({ids:[${ids.join(',')}],order:'rand',n:${ids.length},title:'다시 볼 핵심개념 문제'})">이 문제들 다시 풀기 (${ids.length})</button>`
   : `<div class="card sub" style="margin-top:14px">아직 저장한 핵심개념이 없어요. 문제를 채점한 뒤 핵심개념 칸 오른쪽 위의 <b>☆ 다시보기</b>를 눌러 보세요.</div>`}`;
 }
-
-// ───────── 문제 그림 (ERD) ─────────
-// 패널 { t 제목, bk 바커 표기, gx/gy 간격, e 엔터티[{k,n,pk,at,dep,cols,hl,p,np}], r 관계[{a,b,ea,eb,d,lbl,lbB}] }
+// ───────── 그림 (ERD · 표기법 · 트리) ─────────
+// 패널 { t 제목, bk 바커 표기, gx/gy 간격, arc:[관계 번호 2개] 상호배타 호,
+//        e 엔터티[{k,n,pk,at,dep,cols,hl,p:[열,행](소수 = 두 열 사이),np}],
+//        r 관계[{a,b,ea,eb,d 점선, dA/dB 바커 반쪽 점선, lbl 관계명, lbA/lbB 끝 글자}] }
+// pk·at가 없으면 이름만 든 상자. a와 b가 같으면 자기 참조(순환) 관계.
 const ERF = "-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif";
 let ERC = null;
 function erdTW(t, fs, wt) {
   try { ERC = ERC || document.createElement('canvas').getContext('2d'); ERC.font = `${wt || 400} ${fs}px ${ERF}`; return ERC.measureText(t).width; }
   catch (e) { let w = 0; for (const ch of t) w += /[가-힣ㄱ-ㅎ①-④…]/.test(ch) ? 1 : /[A-Z0-9]/.test(ch) ? 0.66 : /[a-z]/.test(ch) ? 0.56 : 0.34; return w * fs; }
 }
-const ER = { row: 19, py: 6, px: 11, nh: 23, fs: 13.5 };
+const ER = { row: 19, py: 6, px: 11, nh: 23, fs: 13.5, Z: 1.12 };
 function erdRowW(t) { const fk = / ?\(FK\)$/.test(t); return erdTW(t.replace(/ ?\(FK\)$/, ''), ER.fs) + (fk ? 4 + erdTW('(FK)', 11) : 0); }
 function erdRowT(x, y, t) {
   const fk = / ?\(FK\)$/.test(t), b = t.replace(/ ?\(FK\)$/, '');
@@ -1650,12 +1666,13 @@ function erdRowT(x, y, t) {
 }
 function erdSize(e, bk) {
   const nw = erdTW(e.n, 14.5, 700);
+  if (!e.pk.length && !e.at.length) { e.simple = 1; e.w = Math.max(76, Math.ceil(erdTW(e.n, 14, 700)) + 30); e.h = e.ph = 40; e.th = e.h; return; }
   if (bk) {
     const cols = e.cols || 1, per = Math.ceil(e.at.length / cols), cw = [];
     for (let c = 0; c < cols; c++) cw.push(Math.max(0, ...e.at.slice(c * per, (c + 1) * per).map(t => erdTW(t.slice(2), ER.fs))) + 16);
     e._per = per; e._cw = cw;
     e.w = Math.max(nw + 2 * ER.px, cw.reduce((s, x) => s + x, 0) + (cols - 1) * 20 + 2 * ER.px + 4);
-    e.h = 12 + 22 + 6 + per * ER.row + 12; e.th = e.h;
+    e.h = 12 + 22 + 6 + per * ER.row + 12; e.th = e.h; e.ph = 40;
   } else {
     const rows = [...e.pk, ...e.at];
     e.w = Math.max(96, nw + 4, ...rows.map(t => erdRowW(t) + 2 * ER.px));
@@ -1663,54 +1680,80 @@ function erdSize(e, bk) {
     e.h = e.ph + 2 * ER.py + Math.max(1, e.at.length) * ER.row; e.th = ER.nh + e.h;
   }
 }
-function erdEnd(x, y, dx, dy, tok) {
+// 관계선 끝 기호. 선에서 엔터티 쪽으로 읽음: | 하나, || 정확히 하나, o| 0~1, |< 1 이상, o< 0 이상, < 여러 개, o 0
+function erdEnd(x, y, dx, dy, tok, bg) {
   if (!tok) return '';
-  const S = 'stroke="var(--ink)" stroke-width="1.5" fill="none"', bar = u => `<path d="M${u} -8 V8" ${S}/>`, ring = u => `<circle cx="${u}" cy="0" r="5" fill="var(--code)" stroke="var(--ink)" stroke-width="1.5"/>`;
+  const S = 'stroke="var(--ink)" stroke-width="1.5" fill="none"', bar = u => `<path d="M${u} -8 V8" ${S}/>`, ring = u => `<circle cx="${u}" cy="0" r="5" fill="${bg || 'var(--code)'}" stroke="var(--ink)" stroke-width="1.5"/>`;
   const crow = `<path d="M0 -8.5 L15 0 L0 8.5" ${S}/>`;
-  const g = { '|': bar(10), '||': bar(8) + bar(15), 'o<': crow + ring(21), '|<': crow + bar(20), '<': crow, 'o|': bar(9) + ring(19) }[tok] || '';
+  const g = { '|': bar(10), '||': bar(8) + bar(15), 'o<': crow + ring(21), '|<': crow + bar(20), '<': crow, 'o|': bar(9) + ring(19), 'o': ring(12) }[tok] || '';
   return `<g transform="translate(${x} ${y}) rotate(${Math.round(Math.atan2(dy, dx) * 180 / Math.PI)})">${g}</g>`;
 }
 function erdPanel(P, narrow) {
-  const bk = !!P.bk, gx = P.gx || (bk ? 110 : 86), gy = P.gy || 58, M = 10, th = P.t ? 26 : 0;
+  const bk = !!P.bk, M = 10, th = P.t ? 26 : 0;
   const E = P.e.map(o => Object.assign({}, o, { at: o.at || [], pk: o.pk || [] }, narrow ? { cols: 1 } : {})), K = {};
   E.forEach(e => { erdSize(e, bk); e.g = narrow ? (e.np || [e.p[1], e.p[0]]) : e.p; K[e.k] = e; });
+  const allS = E.every(e => e.simple), gx = P.gx || (bk ? 110 : allS ? 96 : 86), gy = P.gy || (allS ? 50 : 58);
   // 위아래로 잇는 두 엔터티는 폭을 맞추고, 아래 엔터티는 이름 오른쪽에 선이 들어올 자리를 둠
-  if (!bk) (P.r || []).forEach(r => { const A = K[r.a], B = K[r.b]; if (A.g[0] !== B.g[0] || A.g[1] === B.g[1]) return;
+  if (!bk) for (let k = 0; k < 2; k++) (P.r || []).forEach(r => { const A = K[r.a], B = K[r.b]; if (A === B || A.g[0] !== B.g[0] || A.g[1] === B.g[1] || A.simple || B.simple) return;
     const D = A.g[1] > B.g[1] ? A : B; D.w = Math.max(D.w, Math.ceil(erdTW(D.n, 14.5, 700) + 48)); A.w = B.w = Math.max(A.w, B.w); });
-  const nc = Math.max(...E.map(e => e.g[0])) + 1, nr = Math.max(...E.map(e => e.g[1])) + 1, cw = Array(nc).fill(0), rh = Array(nr).fill(0);
-  E.forEach(e => { cw[e.g[0]] = Math.max(cw[e.g[0]], e.w); rh[e.g[1]] = Math.max(rh[e.g[1]], e.th); });
+  const isInt = v => v === Math.floor(v);
+  const nc = Math.ceil(Math.max(...E.map(e => e.g[0]))) + 1, nr = Math.max(...E.map(e => e.g[1])) + 1, cw = Array(nc).fill(0), rh = Array(nr).fill(0);
+  E.forEach(e => { if (isInt(e.g[0])) cw[e.g[0]] = Math.max(cw[e.g[0]], e.w); rh[e.g[1]] = Math.max(rh[e.g[1]], e.th); });
   const cx = c => M + cw.slice(0, c).reduce((s, x) => s + x, 0) + c * gx, ry = r => M + th + rh.slice(0, r).reduce((s, x) => s + x, 0) + r * gy;
-  E.forEach(e => { e.x = Math.round(cx(e.g[0]) + (cw[e.g[0]] - e.w) / 2); e.y = ry(e.g[1]) + (bk ? 0 : ER.nh); });
-  const W = Math.ceil(M * 2 + cw.reduce((s, x) => s + x, 0) + (nc - 1) * gx), H = Math.ceil(M * 2 + th + rh.reduce((s, x) => s + x, 0) + (nr - 1) * gy);
+  const cc = c => cx(c) + cw[c] / 2;
+  E.forEach(e => { const c = e.g[0], mid = isInt(c) ? cc(c) : (cc(Math.floor(c)) + cc(Math.ceil(c))) / 2;
+    e.x = Math.round(mid - e.w / 2); e.y = ry(e.g[1]) + (bk || e.simple ? 0 : ER.nh); });
+  const selfs = (P.r || []).some(r => r.a === r.b);
+  const W = Math.ceil(M * 2 + cw.reduce((s, x) => s + x, 0) + (nc - 1) * gx + (selfs ? 44 : 0)), H = Math.ceil(M * 2 + th + rh.reduce((s, x) => s + x, 0) + (nr - 1) * gy + (selfs ? 34 : 0));
   let lines = '', ends = '', labs = '', ents = '';
-  const midY = (A, B) => bk ? Math.min(A.h, B.h) / 2 : Math.min(Math.min(A.h, B.h) / 2, Math.max(A.ph, B.ph) / 2 + 8, 46);
+  const LS = 'stroke="var(--ink)" stroke-width="1.5" fill="none"', DS = ' stroke-dasharray="6 4.5"';
+  const midY = (A, B) => bk || A.simple || B.simple ? Math.min(A.h, B.h) / 2 : Math.min(Math.min(A.h, B.h) / 2, Math.max(A.ph, B.ph) / 2 + 8, 46);
+  const endLab = (p, t) => `<text x="${p[0] + p[2] * 24 + (p[3] ? 12 : 0)}" y="${p[1] + p[3] * 24 + (p[2] ? 16 : 0)}" text-anchor="${p[3] ? 'start' : 'middle'}" dominant-baseline="central" font-size="12.5" fill="var(--ink)">${esc(t)}</text>`;
+  const RP = [];
   (P.r || []).forEach(r => {
-    const A = K[r.a], B = K[r.b]; let pa, pb, path, mid, vert = false;
-    if (A.g[1] === B.g[1]) { // 같은 줄: 가로선
+    const A = K[r.a], B = K[r.b]; let pa, pb, path, mid, vert = false, seg = null;
+    if (A === B) { // 자기 참조: 오른쪽에서 나가 아래로 돌아옴
+      const ya = Math.round(A.y + Math.min(A.ph / 2 + 4, A.h / 2)), xr = A.x + A.w + 34, yb = A.y + A.h + 28, xb = Math.round(A.x + A.w * 0.62);
+      pa = [A.x + A.w, ya, 1, 0]; pb = [xb, A.y + A.h, 0, 1]; path = `M${pa[0]} ${ya} H${xr} V${yb} H${xb} V${pb[1]}`; mid = [xr, (ya + yb) / 2]; vert = true;
+    } else if (A.g[1] === B.g[1]) { // 같은 줄: 가로선
       const y = Math.round(Math.max(A.y, B.y) + midY(A, B)), L = A.x < B.x ? A : B, R = L === A ? B : A;
       const pl = [L.x + L.w, y, 1, 0], pr = [R.x, y, -1, 0];
-      pa = L === A ? pl : pr; pb = L === A ? pr : pl; path = `M${pl[0]} ${y} H${pr[0]}`; mid = [(pl[0] + pr[0]) / 2, y];
+      pa = L === A ? pl : pr; pb = L === A ? pr : pl; path = `M${pl[0]} ${y} H${pr[0]}`; mid = [(pl[0] + pr[0]) / 2, y]; seg = 1;
     } else {
       const U = A.y < B.y ? A : B, D = U === A ? B : A, o1 = Math.max(U.x, D.x) + 14, o2 = Math.min(U.x + U.w, D.x + D.w) - 14;
-      if (o1 <= o2) { // 위아래로 겹치면 세로선 (아래 엔터티 이름과 겹치지 않게)
-        let x = Math.round((o1 + o2) / 2); if (!bk && x < D.x + erdTW(D.n, 14.5, 700) + 12) x = Math.min(o2, Math.round(D.x + erdTW(D.n, 14.5, 700) + 16));
+      if (P.arc && P.arc.includes(P.r.indexOf(r))) {
+        const ux = Math.round(U.x + U.w / 2), dx = Math.round(D.x + D.w * (ux < D.x + D.w / 2 ? 0.3 : 0.7)), ym = Math.round((U.y + U.h + D.y) / 2);
+        const pu = [ux, U.y + U.h, 0, 1], pd = [dx, D.y, 0, -1];
+        pa = U === A ? pu : pd; pb = U === A ? pd : pu; path = `M${ux} ${pu[1]} V${ym} H${dx} V${pd[1]}`; mid = [ux, ym]; vert = true;
+      } else if (o1 <= o2) { // 위아래로 겹치면 세로선 (아래 엔터티 이름과 겹치지 않게)
+        let x = Math.round((o1 + o2) / 2); if (!bk && !D.simple && x < D.x + erdTW(D.n, 14.5, 700) + 12) x = Math.min(o2, Math.round(D.x + erdTW(D.n, 14.5, 700) + 16));
         const pu = [x, U.y + U.h, 0, 1], pd = [x, D.y, 0, -1];
-        pa = U === A ? pu : pd; pb = U === A ? pd : pu; path = `M${x} ${pu[1]} V${pd[1]}`; mid = [x, (pu[1] + pd[1]) / 2]; vert = true;
+        pa = U === A ? pu : pd; pb = U === A ? pd : pu; path = `M${x} ${pu[1]} V${pd[1]}`; mid = [x, (pu[1] + pd[1]) / 2]; vert = true; seg = 1;
       } else { // 꺾은선: 위 엔터티 아래 → 아래 엔터티 옆
         const ux = Math.round(U.x + U.w / 2), y = Math.round(D.y + midY(D, D)), right = ux > D.x + D.w;
         const pu = [ux, U.y + U.h, 0, 1], pd = [right ? D.x + D.w : D.x, y, right ? 1 : -1, 0];
         pa = U === A ? pu : pd; pb = U === A ? pd : pu; path = `M${ux} ${pu[1]} V${y} H${pd[0]}`; mid = [ux, (pu[1] + y) / 2]; vert = true;
       }
     }
-    lines += `<path d="${path}" stroke="var(--ink)" stroke-width="1.5" fill="none"${r.d ? ' stroke-dasharray="6 4.5"' : ''}/>`;
+    RP.push({ pa, pb });
+    if ((r.dA || r.dB) && seg) { // 바커: 엔터티 쪽 절반씩 실선/점선
+      const m = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2];
+      lines += `<path d="M${pa[0]} ${pa[1]} L${m[0]} ${m[1]}" ${LS}${r.dA ? DS : ''}/><path d="M${m[0]} ${m[1]} L${pb[0]} ${pb[1]}" ${LS}${r.dB ? DS : ''}/>`;
+    } else lines += `<path d="${path}" ${LS}${r.d ? DS : ''}/>`;
     ends += erdEnd(pa[0], pa[1], pa[2], pa[3], r.ea) + erdEnd(pb[0], pb[1], pb[2], pb[3], r.eb);
     if (r.lbl) labs += vert ? `<text x="${mid[0] + 9}" y="${mid[1]}" dominant-baseline="central" font-size="12.5" fill="var(--sub)">${esc(r.lbl)}</text>` : `<text x="${mid[0]}" y="${mid[1] - 10}" text-anchor="middle" font-size="12.5" fill="var(--sub)">${esc(r.lbl)}</text>`;
-    if (r.lbB) labs += `<text x="${pb[0] + pb[2] * 22 + (pb[3] ? 10 : 0)}" y="${pb[1] + pb[3] * 22 + (pb[2] ? 15 : 0)}" text-anchor="middle" dominant-baseline="central" font-size="13" fill="var(--ink)">${esc(r.lbB)}</text>`;
+    if (r.lbA) labs += endLab(pa, r.lbA);
+    if (r.lbB) labs += endLab(pb, r.lbB);
   });
+  if (P.arc) { // 상호배타 관계: 두 관계선을 아래 엔터티 가까이에서 호로 묶음
+    const p1 = RP[P.arc[0]].pb, p2 = RP[P.arc[1]].pb, y = Math.min(p1[1], p2[1]) - 22, l = Math.min(p1[0], p2[0]) - 12, rr = Math.max(p1[0], p2[0]) + 12;
+    lines += `<path d="M${l} ${y + 6} Q${(l + rr) / 2} ${y - 14} ${rr} ${y + 6}" stroke="var(--ink)" stroke-width="1.8" fill="none"/>`;
+  }
   E.forEach(e => {
     const rx = e.dep || bk ? 11 : 2;
     let s = `<rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" rx="${rx}" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>`;
-    if (bk) {
+    if (e.simple) s += `<text x="${e.x + e.w / 2}" y="${e.y + e.h / 2}" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="var(--ink)">${esc(e.n)}</text>`;
+    else if (bk) {
       s += `<text x="${e.x + ER.px}" y="${e.y + 12 + 11}" dominant-baseline="central" font-size="14.5" font-weight="700" fill="var(--ink)">${esc(e.n)}</text>`;
       let xx = e.x + ER.px + 2;
       e._cw.forEach((w, c) => { e.at.slice(c * e._per, (c + 1) * e._per).forEach((t, i) => { const y = e.y + 12 + 22 + 6 + i * ER.row + ER.row / 2;
@@ -1726,15 +1769,21 @@ function erdPanel(P, narrow) {
     ents += s;
   });
   const title = P.t ? `<text x="${M}" y="${M + 9}" dominant-baseline="central" font-size="13.5" font-weight="700" fill="var(--sub)">${esc(P.t)}</text>` : '';
-  const Z = 1.12; // 본문 글자 크기에 맞춰 조금 크게
-  return { W: Math.ceil(W * Z), svg: `<svg viewBox="0 0 ${W} ${H}" width="${Math.ceil(W * Z)}" height="${Math.ceil(H * Z)}" font-family="${ERF.replace(/"/g, '')}" role="img">${title}${lines}${ents}${ends}${labs}</svg>` };
+  return erdSvg(W, H, title + lines + ents + ends + labs);
 }
-function erdHTML(q) {
-  const w = q.erd.map(P => erdPanel(P, false)), n = q.erd.map(P => erdPanel(P, true));
+function erdSvg(W, H, body, cls) {
+  const Z = ER.Z; // 본문 글자 크기에 맞춰 조금 크게
+  return { W: Math.ceil(W * Z), svg: `<svg${cls ? ` class="${cls}"` : ''} viewBox="0 0 ${W} ${H}" width="${Math.ceil(W * Z)}" height="${Math.ceil(H * Z)}" font-family="${ERF}" role="img">${body}</svg>` };
+}
+// 그림 묶음: 넓은 배치/좁은 배치 두 벌 + 아래 설명
+function erdBlock(panels, o) {
+  o = o || {};
+  const w = panels.map(P => erdPanel(P, false)), n = panels.map(P => erdPanel(P, true));
   const ww = Math.max(...w.map(p => p.W)), nw = Math.max(...n.map(p => p.W));
-  return `<figure class="kimg erd" data-ww="${ww}" data-nw="${nw}" aria-label="${esc(q.imgAlt || '문제 그림')}"><div class="erd-l erd-w">${w.map(p => p.svg).join('')}</div><div class="erd-l erd-n">${n.map(p => p.svg).join('')}</div>
-  ${q.img ? `<details class="erd-src"><summary>원본 스캔 보기</summary><img src="${q.img}" alt="원본 그림"></details>` : ''}</figure>`;
+  return `<figure class="kimg erd" data-ww="${ww}" data-nw="${nw}"${o.alt ? ` aria-label="${esc(o.alt)}"` : ''}><div class="erd-l erd-w">${w.map(p => p.svg).join('')}</div><div class="erd-l erd-n">${n.map(p => p.svg).join('')}</div>
+  ${o.cap ? `<figcaption class="erd-cap">${o.cap.map(t => `<div>${md(t)}</div>`).join('')}</figcaption>` : ''}${o.img ? `<details class="erd-src"><summary>원본 스캔 보기</summary><img src="${o.img}" alt="원본 그림"></details>` : ''}</figure>`;
 }
+function erdHTML(q) { return erdBlock(q.erd, { alt: q.imgAlt || '문제 그림', img: q.img }); }
 // 칸 폭에 맞춰 넓은 배치/세로 배치 고르기 (넓은 배치가 85% 미만으로 줄어들 때만 세로로)
 function erdFit() {
   document.querySelectorAll('figure.erd').forEach(f => {
@@ -1744,3 +1793,71 @@ function erdFit() {
   });
 }
 let erdRT = 0; window.addEventListener('resize', () => { clearTimeout(erdRT); erdRT = setTimeout(() => { const had = document.querySelector('figure.erd'); erdFit(); if (had && typeof inkDraw === 'function' && $('#inkw')) inkDraw(); }, 120); });
+
+// 트리 (계층형 질의): [이름, [자식...]] 왼쪽 → 오른쪽, 맨 위에 LEVEL
+function treeSVG(root, o) {
+  o = o || {}; const RH = 30, GX = 30, M = 10, TH = 24, cw = [], nodes = [];
+  let leaf = 0;
+  const walk = (n, d) => { const nd = { t: n[0], d, k: (n[1] || []).map(c => walk(c, d + 1)) }; nd.w = Math.ceil(erdTW(nd.t, 13.5, 600)) + 20; cw[d] = Math.max(cw[d] || 0, nd.w);
+    if (nd.k.length) nd.y = (nd.k[0].y + nd.k[nd.k.length - 1].y) / 2; else nd.y = leaf++; nodes.push(nd); return nd; };
+  walk(root, 0);
+  const cx = d => M + cw.slice(0, d).reduce((s, x) => s + x, 0) + d * GX, Y = r => M + TH + r * RH + RH / 2;
+  let b = '';
+  cw.forEach((w, d) => { b += `<text x="${cx(d) + w / 2}" y="${M + 8}" text-anchor="middle" dominant-baseline="central" font-size="11.5" fill="var(--sub)">LEVEL ${d + 1}</text>`; });
+  nodes.forEach(n => n.k.forEach(c => { const x1 = cx(n.d) + n.w, xm = cx(n.d + 1) - GX / 2, x2 = cx(c.d);
+    b += `<path d="M${x1} ${Y(n.y)} H${xm} V${Y(c.y)} H${x2}" stroke="var(--sub)" stroke-width="1.4" fill="none"/>`; }));
+  nodes.forEach(n => { const x = cx(n.d), hi = (o.hi || []).includes(n.t);
+    b += `<rect x="${x}" y="${Y(n.y) - 11}" width="${n.w}" height="22" rx="6" fill="${hi ? 'var(--warn-soft)' : 'var(--card)'}" stroke="${hi ? 'var(--warn)' : 'var(--ink)'}" stroke-width="1.3"/>` +
+      `<text x="${x + n.w / 2}" y="${Y(n.y)}" text-anchor="middle" dominant-baseline="central" font-size="13.5" font-weight="600" fill="var(--ink)">${esc(n.t)}</text>`; });
+  const W = Math.ceil(cx(cw.length - 1) + cw[cw.length - 1] + M), H = Math.ceil(M * 2 + TH + leaf * RH);
+  return erdSvg(W, H, b).svg;
+}
+function treeBlock(root, o) { o = o || {}; return `<figure class="kimg erd tree"><div class="erd-l">${treeSVG(root, o)}</div>${o.cap ? `<figcaption class="erd-cap">${o.cap.map(t => `<div>${md(t)}</div>`).join('')}</figcaption>` : ''}</figure>`; }
+
+// 글 속 기호: {{ie:o<}} 끝 기호 · {{r:A,ea,eb,B[,d]}} 두 엔터티 관계 · {{self:A,ea,eb}} 자기 참조
+function erdInline(k, a) {
+  const p = a.split(',');
+  if (k === 'ie') { const t = p[0];
+    return `<svg class="iesym" viewBox="0 0 50 20" width="45" height="18" aria-label="${esc(t)}"><path d="M0 10 H34" stroke="var(--ink)" stroke-width="1.5"/><rect x="34" y="1.5" width="15" height="17" rx="2" fill="var(--soft)" stroke="var(--ink)" stroke-width="1.4"/>${erdEnd(34, 10, -1, 0, t, 'var(--card)')}</svg>`; }
+  if (k === 'r') { const [A, ea, eb, B, d] = p;
+    return `<span class="ier"><span class="ieb">${esc(A)}</span><svg viewBox="0 0 62 20" width="56" height="18"><path d="M0 10 H62" stroke="var(--ink)" stroke-width="1.5"${d ? ' stroke-dasharray="5 4"' : ''}/>${erdEnd(0, 10, 1, 0, ea, 'var(--card)')}${erdEnd(62, 10, -1, 0, eb, 'var(--card)')}</svg><span class="ieb">${esc(B)}</span></span>`; }
+  if (k === 'self') { const [A, ea, eb] = p, w = Math.ceil(erdTW(A, 13, 600)) + 18;
+    return `<svg class="ieself" viewBox="0 0 ${w + 40} 44" width="${(w + 40) * 0.9}" height="40"><path d="M${w + 1} 12 H${w + 26} V36 H${Math.round(w * 0.6)} V24" stroke="var(--ink)" stroke-width="1.5" fill="none"/>${erdEnd(w + 1, 12, 1, 0, ea, 'var(--card)')}${erdEnd(Math.round(w * 0.6), 24, 0, 1, eb, 'var(--card)')}<rect x="1" y="1" width="${w}" height="23" rx="3" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="${w / 2 + 1}" y="12.5" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="600" fill="var(--ink)" font-family="${ERF}">${esc(A)}</text></svg>`; }
+  return '';
+}
+
+// 표기법 그림 다시 그리기 (문제·개념의 fig 문자열). 예전 기호 11 o1 1< o< o- -1 → 새 기호 || o| |< o< o |
+const FIGTOK = t => { t = t || '--'; return ({ '1': '|', 'o': 'o', '-': '' }[t[0]] || '') + ({ '1': '|', '<': '<', '-': '' }[t[1]] || ''); };
+function figSVG(spec, small) {
+  const p = spec.split('|'), k = p[0], cls = 'fig' + (small ? ' sm' : '');
+  const box = (A, i, x) => ({ k: 'e' + i, n: A, p: [x, 0] });
+  if (k === 'ie') { const [, A, ea, eb, B, ln] = p;
+    return erdPanel({ gx: small ? 90 : 130, e: [box(A, 0, 0), box(B, 1, 1)], r: [{ a: 'e0', b: 'e1', ea: FIGTOK(ea), eb: FIGTOK(eb), d: ln === 'd' }] }, false).svg.replace('<svg', `<svg class="${cls}"`); }
+  if (k === 'bkrel') { const [, A, B, da, db, cb] = p;
+    return erdPanel({ bk: 1, gx: small ? 90 : 130, e: [box(A, 0, 0), box(B, 1, 1)], r: [{ a: 'e0', b: 'e1', ea: '', eb: cb === '1' ? '<' : '', dA: da === '1', dB: db === '1' }] }, false).svg.replace('<svg', `<svg class="${cls}"`); }
+  if (k === 'bk') { const [, E, at] = p;
+    return erdPanel({ bk: 1, e: [{ k: 'e', n: E, at: at.split(',').map(r => r[0] + ' ' + r.slice(1)), p: [0, 0] }] }, false).svg.replace('<svg', `<svg class="${cls}"`); }
+  if (k === 'end') { const [, B, e] = p, bw = Math.max(76, Math.ceil(erdTW(B, 14, 700)) + 30), L = small ? 64 : 86, W = L + bw + 8, H = 52, y = 26;
+    const b = `<path d="M4 ${y} H${L}" stroke="var(--ink)" stroke-width="1.5"/><rect x="${L}" y="${y - 20}" width="${bw}" height="40" rx="2" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>` +
+      `<text x="${L + bw / 2}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="var(--ink)">${esc(B)}</text>` + erdEnd(L, y, -1, 0, FIGTOK(e));
+    return erdSvg(W, H, b, cls).svg; }
+  if (k === 'chen') { const [, A, R, B, aa, ba, ca, cb] = p;
+    const ea = (aa || '').split(',').filter(Boolean), eb = (ba || '').split(',').filter(Boolean);
+    const aw = Math.max(70, erdTW(A, 14, 700) + 30), bw = Math.max(70, erdTW(B, 14, 700) + 30), rw = Math.max(90, erdTW(R, 13, 600) + 50), gap = 46;
+    const ell = t => Math.max(34, erdTW(t, 12.5, 500) / 2 + 13);
+    const spread = (arr, cx) => { const ws = arr.map(t => ell(t) * 2), tot = ws.reduce((s, x) => s + x, 0) + (arr.length - 1) * 10; let x = cx - tot / 2; return arr.map((t, i) => { const c = x + ws[i] / 2; x += ws[i] + 10; return { t, c, rx: ws[i] / 2 }; }); };
+    let ax = 0, A1 = spread(ea, ax + aw / 2), shift = Math.max(0, ...A1.map(o => o.rx - o.c));
+    ax += shift + 4; A1 = spread(ea, ax + aw / 2);
+    const rx = ax + aw + gap, bx = rx + rw + gap, B1 = spread(eb, bx + bw / 2), y = 92;
+    const W = Math.ceil(Math.max(bx + bw, ...B1.map(o => o.c + o.rx), ...A1.map(o => o.c + o.rx)) + 6), H = 120;
+    let b = '';
+    [[A1, ax + aw / 2], [B1, bx + bw / 2]].forEach(([L, c]) => L.forEach((o, i) => { b += `<path d="M${c} ${y - 18} L${o.c} 38" stroke="var(--ink)" stroke-width="1.4"/><ellipse cx="${o.c}" cy="25" rx="${o.rx}" ry="14" fill="var(--card)" stroke="var(--ink)" stroke-width="1.4"/><text x="${o.c}" y="25" text-anchor="middle" dominant-baseline="central" font-size="12.5" fill="var(--ink)">${esc(o.t)}</text>${i === 0 ? `<path d="M${o.c - erdTW(o.t, 12.5) / 2} 33.5 H${o.c + erdTW(o.t, 12.5) / 2}" stroke="var(--ink)" stroke-width="1"/>` : ''}`; }));
+    b += `<path d="M${ax + aw} ${y} H${bx}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    if (ca) b += `<text x="${ax + aw + gap / 2}" y="${y - 9}" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--sub)">${esc(ca)}</text>`;
+    if (cb) b += `<text x="${bx - gap / 2}" y="${y - 9}" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--sub)">${esc(cb)}</text>`;
+    b += `<path d="M${rx + rw / 2} ${y - 22} L${rx + rw} ${y} L${rx + rw / 2} ${y + 22} L${rx} ${y} Z" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/><text x="${rx + rw / 2}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="600" fill="var(--ink)">${esc(R)}</text>`;
+    b += `<rect x="${ax}" y="${y - 18}" width="${aw}" height="36" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/><text x="${ax + aw / 2}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="var(--ink)">${esc(A)}</text>`;
+    b += `<rect x="${bx}" y="${y - 18}" width="${bw}" height="36" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/><text x="${bx + bw / 2}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="var(--ink)">${esc(B)}</text>`;
+    return erdSvg(W, H, b, cls).svg; }
+  return '';
+}
