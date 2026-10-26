@@ -467,7 +467,8 @@ function ot(t) {
 function qExtra(q) {
   let h = '';
   if (q.box) h += `<div class="qbox"><span class="qbox-h">아래</span>${q.box.map(l => `<div class="bl">${l ? md(l) : '&nbsp;'}</div>`).join('')}</div>`;
-  if (q.img) h += `<figure class="kimg"><img src="${q.img}" alt="${esc(q.imgAlt || '문제 그림')}">${q.imgAlt ? `<figcaption>${esc(q.imgAlt)}</figcaption>` : ''}</figure>`;
+  if (q.erd) h += erdHTML(q);
+  else if (q.img) h += `<figure class="kimg"><img src="${q.img}" alt="${esc(q.imgAlt || '문제 그림')}">${q.imgAlt ? `<figcaption>${esc(q.imgAlt)}</figcaption>` : ''}</figure>`;
   const tb = (q.tables || []).filter(t => !t.after);
   if (tb.length) h += `<div class="qt">${tb.map(t => `<div class="qt-t">${t.name ? `<b>${esc(t.name)}</b>` : ''}${miniTbl(t, 'qt-tb')}</div>`).join('')}</div>`;
   if (q.note) h += `<div class="qnote">※ ${md(q.note)}</div>`;
@@ -481,7 +482,7 @@ function qCode(q) {
 }
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 1800); }
-function sheet(html) { closeSheet(); const bg = document.createElement('div'); bg.className = 'sheet-bg'; bg.id = 'sheet'; bg.innerHTML = '<div class="sheet"><div class="grab"></div>' + html + '</div>'; bg.addEventListener('click', e => { if (e.target === bg) closeSheet(); }); document.body.appendChild(bg); hlMount(bg); }
+function sheet(html) { closeSheet(); const bg = document.createElement('div'); bg.className = 'sheet-bg'; bg.id = 'sheet'; bg.innerHTML = '<div class="sheet"><div class="grab"></div>' + html + '</div>'; bg.addEventListener('click', e => { if (e.target === bg) closeSheet(); }); document.body.appendChild(bg); erdFit(); hlMount(bg); }
 function ask(msg, yes, fn) {
   sheet(`<div class="q" style="font-weight:600">${esc(msg)}</div><div class="grid2" style="margin-top:12px"><button class="btn line" onclick="closeSheet()">취소</button><button class="btn" id="askYes">${esc(yes)}</button></div>`);
   $('#askYes').onclick = () => { closeSheet(); fn(); };
@@ -511,6 +512,7 @@ function render() {
   if (!S.cause) S.cause = {};
   const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide, kknote }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
+  erdFit();
   hlHide(); hlMount($('#app'));
   inkMount();
 }
@@ -1631,3 +1633,114 @@ function kknote() {
   <button class="btn" style="margin-top:16px" onclick="startPractice({ids:[${ids.join(',')}],order:'rand',n:${ids.length},title:'다시 볼 핵심개념 문제'})">이 문제들 다시 풀기 (${ids.length})</button>`
   : `<div class="card sub" style="margin-top:14px">아직 저장한 핵심개념이 없어요. 문제를 채점한 뒤 핵심개념 칸 오른쪽 위의 <b>☆ 다시보기</b>를 눌러 보세요.</div>`}`;
 }
+
+// ───────── 문제 그림 (ERD) ─────────
+// 패널 { t 제목, bk 바커 표기, gx/gy 간격, e 엔터티[{k,n,pk,at,dep,cols,hl,p,np}], r 관계[{a,b,ea,eb,d,lbl,lbB}] }
+const ERF = "-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif";
+let ERC = null;
+function erdTW(t, fs, wt) {
+  try { ERC = ERC || document.createElement('canvas').getContext('2d'); ERC.font = `${wt || 400} ${fs}px ${ERF}`; return ERC.measureText(t).width; }
+  catch (e) { let w = 0; for (const ch of t) w += /[가-힣ㄱ-ㅎ①-④…]/.test(ch) ? 1 : /[A-Z0-9]/.test(ch) ? 0.66 : /[a-z]/.test(ch) ? 0.56 : 0.34; return w * fs; }
+}
+const ER = { row: 19, py: 6, px: 11, nh: 23, fs: 13.5 };
+function erdRowW(t) { const fk = / ?\(FK\)$/.test(t); return erdTW(t.replace(/ ?\(FK\)$/, ''), ER.fs) + (fk ? 4 + erdTW('(FK)', 11) : 0); }
+function erdRowT(x, y, t) {
+  const fk = / ?\(FK\)$/.test(t), b = t.replace(/ ?\(FK\)$/, '');
+  return `<text x="${x}" y="${y}" dominant-baseline="central" font-size="${ER.fs}" fill="var(--ink)">${esc(b)}${fk ? `<tspan dx="4" font-size="11" fill="var(--sub)">(FK)</tspan>` : ''}</text>`;
+}
+function erdSize(e, bk) {
+  const nw = erdTW(e.n, 14.5, 700);
+  if (bk) {
+    const cols = e.cols || 1, per = Math.ceil(e.at.length / cols), cw = [];
+    for (let c = 0; c < cols; c++) cw.push(Math.max(0, ...e.at.slice(c * per, (c + 1) * per).map(t => erdTW(t.slice(2), ER.fs))) + 16);
+    e._per = per; e._cw = cw;
+    e.w = Math.max(nw + 2 * ER.px, cw.reduce((s, x) => s + x, 0) + (cols - 1) * 20 + 2 * ER.px + 4);
+    e.h = 12 + 22 + 6 + per * ER.row + 12; e.th = e.h;
+  } else {
+    const rows = [...e.pk, ...e.at];
+    e.w = Math.max(96, nw + 4, ...rows.map(t => erdRowW(t) + 2 * ER.px));
+    e.ph = 2 * ER.py + e.pk.length * ER.row;
+    e.h = e.ph + 2 * ER.py + Math.max(1, e.at.length) * ER.row; e.th = ER.nh + e.h;
+  }
+}
+function erdEnd(x, y, dx, dy, tok) {
+  if (!tok) return '';
+  const S = 'stroke="var(--ink)" stroke-width="1.5" fill="none"', bar = u => `<path d="M${u} -8 V8" ${S}/>`, ring = u => `<circle cx="${u}" cy="0" r="5" fill="var(--code)" stroke="var(--ink)" stroke-width="1.5"/>`;
+  const crow = `<path d="M0 -8.5 L15 0 L0 8.5" ${S}/>`;
+  const g = { '|': bar(10), '||': bar(8) + bar(15), 'o<': crow + ring(21), '|<': crow + bar(20), '<': crow, 'o|': bar(9) + ring(19) }[tok] || '';
+  return `<g transform="translate(${x} ${y}) rotate(${Math.round(Math.atan2(dy, dx) * 180 / Math.PI)})">${g}</g>`;
+}
+function erdPanel(P, narrow) {
+  const bk = !!P.bk, gx = P.gx || (bk ? 110 : 86), gy = P.gy || 58, M = 10, th = P.t ? 26 : 0;
+  const E = P.e.map(o => Object.assign({}, o, { at: o.at || [], pk: o.pk || [] }, narrow ? { cols: 1 } : {})), K = {};
+  E.forEach(e => { erdSize(e, bk); e.g = narrow ? (e.np || [e.p[1], e.p[0]]) : e.p; K[e.k] = e; });
+  // 위아래로 잇는 두 엔터티는 폭을 맞추고, 아래 엔터티는 이름 오른쪽에 선이 들어올 자리를 둠
+  if (!bk) (P.r || []).forEach(r => { const A = K[r.a], B = K[r.b]; if (A.g[0] !== B.g[0] || A.g[1] === B.g[1]) return;
+    const D = A.g[1] > B.g[1] ? A : B; D.w = Math.max(D.w, Math.ceil(erdTW(D.n, 14.5, 700) + 48)); A.w = B.w = Math.max(A.w, B.w); });
+  const nc = Math.max(...E.map(e => e.g[0])) + 1, nr = Math.max(...E.map(e => e.g[1])) + 1, cw = Array(nc).fill(0), rh = Array(nr).fill(0);
+  E.forEach(e => { cw[e.g[0]] = Math.max(cw[e.g[0]], e.w); rh[e.g[1]] = Math.max(rh[e.g[1]], e.th); });
+  const cx = c => M + cw.slice(0, c).reduce((s, x) => s + x, 0) + c * gx, ry = r => M + th + rh.slice(0, r).reduce((s, x) => s + x, 0) + r * gy;
+  E.forEach(e => { e.x = Math.round(cx(e.g[0]) + (cw[e.g[0]] - e.w) / 2); e.y = ry(e.g[1]) + (bk ? 0 : ER.nh); });
+  const W = Math.ceil(M * 2 + cw.reduce((s, x) => s + x, 0) + (nc - 1) * gx), H = Math.ceil(M * 2 + th + rh.reduce((s, x) => s + x, 0) + (nr - 1) * gy);
+  let lines = '', ends = '', labs = '', ents = '';
+  const midY = (A, B) => bk ? Math.min(A.h, B.h) / 2 : Math.min(Math.min(A.h, B.h) / 2, Math.max(A.ph, B.ph) / 2 + 8, 46);
+  (P.r || []).forEach(r => {
+    const A = K[r.a], B = K[r.b]; let pa, pb, path, mid, vert = false;
+    if (A.g[1] === B.g[1]) { // 같은 줄: 가로선
+      const y = Math.round(Math.max(A.y, B.y) + midY(A, B)), L = A.x < B.x ? A : B, R = L === A ? B : A;
+      const pl = [L.x + L.w, y, 1, 0], pr = [R.x, y, -1, 0];
+      pa = L === A ? pl : pr; pb = L === A ? pr : pl; path = `M${pl[0]} ${y} H${pr[0]}`; mid = [(pl[0] + pr[0]) / 2, y];
+    } else {
+      const U = A.y < B.y ? A : B, D = U === A ? B : A, o1 = Math.max(U.x, D.x) + 14, o2 = Math.min(U.x + U.w, D.x + D.w) - 14;
+      if (o1 <= o2) { // 위아래로 겹치면 세로선 (아래 엔터티 이름과 겹치지 않게)
+        let x = Math.round((o1 + o2) / 2); if (!bk && x < D.x + erdTW(D.n, 14.5, 700) + 12) x = Math.min(o2, Math.round(D.x + erdTW(D.n, 14.5, 700) + 16));
+        const pu = [x, U.y + U.h, 0, 1], pd = [x, D.y, 0, -1];
+        pa = U === A ? pu : pd; pb = U === A ? pd : pu; path = `M${x} ${pu[1]} V${pd[1]}`; mid = [x, (pu[1] + pd[1]) / 2]; vert = true;
+      } else { // 꺾은선: 위 엔터티 아래 → 아래 엔터티 옆
+        const ux = Math.round(U.x + U.w / 2), y = Math.round(D.y + midY(D, D)), right = ux > D.x + D.w;
+        const pu = [ux, U.y + U.h, 0, 1], pd = [right ? D.x + D.w : D.x, y, right ? 1 : -1, 0];
+        pa = U === A ? pu : pd; pb = U === A ? pd : pu; path = `M${ux} ${pu[1]} V${y} H${pd[0]}`; mid = [ux, (pu[1] + y) / 2]; vert = true;
+      }
+    }
+    lines += `<path d="${path}" stroke="var(--ink)" stroke-width="1.5" fill="none"${r.d ? ' stroke-dasharray="6 4.5"' : ''}/>`;
+    ends += erdEnd(pa[0], pa[1], pa[2], pa[3], r.ea) + erdEnd(pb[0], pb[1], pb[2], pb[3], r.eb);
+    if (r.lbl) labs += vert ? `<text x="${mid[0] + 9}" y="${mid[1]}" dominant-baseline="central" font-size="12.5" fill="var(--sub)">${esc(r.lbl)}</text>` : `<text x="${mid[0]}" y="${mid[1] - 10}" text-anchor="middle" font-size="12.5" fill="var(--sub)">${esc(r.lbl)}</text>`;
+    if (r.lbB) labs += `<text x="${pb[0] + pb[2] * 22 + (pb[3] ? 10 : 0)}" y="${pb[1] + pb[3] * 22 + (pb[2] ? 15 : 0)}" text-anchor="middle" dominant-baseline="central" font-size="13" fill="var(--ink)">${esc(r.lbB)}</text>`;
+  });
+  E.forEach(e => {
+    const rx = e.dep || bk ? 11 : 2;
+    let s = `<rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" rx="${rx}" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>`;
+    if (bk) {
+      s += `<text x="${e.x + ER.px}" y="${e.y + 12 + 11}" dominant-baseline="central" font-size="14.5" font-weight="700" fill="var(--ink)">${esc(e.n)}</text>`;
+      let xx = e.x + ER.px + 2;
+      e._cw.forEach((w, c) => { e.at.slice(c * e._per, (c + 1) * e._per).forEach((t, i) => { const y = e.y + 12 + 22 + 6 + i * ER.row + ER.row / 2;
+        s += `<text x="${xx}" y="${y}" dominant-baseline="central" font-size="${ER.fs}" fill="var(--ink)"><tspan font-weight="700" fill="var(--sub)">${esc(t[0])}</tspan><tspan x="${xx + 15}">${esc(t.slice(2))}</tspan></text>`; }); xx += w + 20; });
+    } else {
+      s = `<text x="${e.x + 1}" y="${e.y - 8}" font-size="14.5" font-weight="700" fill="var(--ink)">${esc(e.n)}</text>` + s;
+      s += `<path d="M${e.x} ${e.y + e.ph} H${e.x + e.w}" stroke="var(--ink)" stroke-width="1.2"/>`;
+      if (e.hl) { const y1 = e.y + e.ph + ER.py + e.hl[0] * ER.row - 2, y2 = e.y + e.ph + ER.py + (e.hl[1] + 1) * ER.row + 2;
+        s += `<rect x="${e.x + 4}" y="${y1}" width="${e.w - 8}" height="${y2 - y1}" rx="4" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.6"/>`; }
+      e.pk.forEach((t, i) => { s += erdRowT(e.x + ER.px, e.y + ER.py + i * ER.row + ER.row / 2, t); });
+      e.at.forEach((t, i) => { s += erdRowT(e.x + ER.px, e.y + e.ph + ER.py + i * ER.row + ER.row / 2, t); });
+    }
+    ents += s;
+  });
+  const title = P.t ? `<text x="${M}" y="${M + 9}" dominant-baseline="central" font-size="13.5" font-weight="700" fill="var(--sub)">${esc(P.t)}</text>` : '';
+  const Z = 1.12; // 본문 글자 크기에 맞춰 조금 크게
+  return { W: Math.ceil(W * Z), svg: `<svg viewBox="0 0 ${W} ${H}" width="${Math.ceil(W * Z)}" height="${Math.ceil(H * Z)}" font-family="${ERF.replace(/"/g, '')}" role="img">${title}${lines}${ents}${ends}${labs}</svg>` };
+}
+function erdHTML(q) {
+  const w = q.erd.map(P => erdPanel(P, false)), n = q.erd.map(P => erdPanel(P, true));
+  const ww = Math.max(...w.map(p => p.W)), nw = Math.max(...n.map(p => p.W));
+  return `<figure class="kimg erd" data-ww="${ww}" data-nw="${nw}" aria-label="${esc(q.imgAlt || '문제 그림')}"><div class="erd-l erd-w">${w.map(p => p.svg).join('')}</div><div class="erd-l erd-n">${n.map(p => p.svg).join('')}</div>
+  ${q.img ? `<details class="erd-src"><summary>원본 스캔 보기</summary><img src="${q.img}" alt="원본 그림"></details>` : ''}</figure>`;
+}
+// 칸 폭에 맞춰 넓은 배치/세로 배치 고르기 (넓은 배치가 85% 미만으로 줄어들 때만 세로로)
+function erdFit() {
+  document.querySelectorAll('figure.erd').forEach(f => {
+    const cw = f.clientWidth - 24; if (cw <= 0) return;
+    const sw = Math.min(1, cw / +f.dataset.ww), sn = Math.min(1, cw / +f.dataset.nw);
+    f.classList.toggle('nar', sw < 0.85 && sn > sw + 0.02);
+  });
+}
+let erdRT = 0; window.addEventListener('resize', () => { clearTimeout(erdRT); erdRT = setTimeout(() => { const had = document.querySelector('figure.erd'); erdFit(); if (had && typeof inkDraw === 'function' && $('#inkw')) inkDraw(); }, 120); });

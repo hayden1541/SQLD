@@ -399,6 +399,15 @@ mark.hl{color:inherit;border-radius:3px;padding:1px 0;-webkit-box-decoration-bre
 .kkc.hide .kkb{position:relative;cursor:pointer;border-radius:10px}
 .kkc.hide .kkb:not(.show) > *{filter:blur(7px);opacity:.55;pointer-events:none;user-select:none}
 .kkc.hide .kkb:not(.show)::after{content:'눌러서 보기';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;color:var(--ink)}
+
+figure.erd{margin:2px 0 12px;background:var(--code);border-radius:12px;padding:12px}
+figure.erd .erd-l{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:flex-start}
+figure.erd .erd-l svg{max-width:100%;height:auto;display:block}
+figure.erd .erd-n,figure.erd.nar .erd-w{display:none}
+figure.erd.nar .erd-n{display:flex}
+.erd-src{margin-top:8px;font-size:12px;color:var(--sub)}
+.erd-src summary{cursor:pointer;width:max-content}
+.erd-src img{max-width:100%;border-radius:8px;border:1px solid var(--line);background:#fff;display:block;margin-top:6px}
 </style>
 </head>
 <body>
