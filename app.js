@@ -380,6 +380,17 @@ function record(qid, ok) {
 }
 
 // ───────── 통계 ─────────
+// 개념 문제를 전부 푼 날로부터 지난 날 수 (전부 안 풀었으면 null)
+function conceptAgo(cid) {
+  const ids = BY_C[cid] || []; if (!ids.length) return null; let old = null;
+  for (const id of ids) { const a = S.att[id]; if (!a || !a.n || !a.last) return null; if (!old || a.last < old) old = a.last; }
+  return Math.max(0, Math.round((new Date(today() + 'T00:00:00') - new Date(old + 'T00:00:00')) / 86400000));
+}
+function agoTag(cid, st) {
+  const d = conceptAgo(cid);
+  if (d == null) return st.solved ? `<span class="ago">${st.solved}/${st.total} 풀이</span>` : '';
+  return `<span class="ago ${d >= 3 ? 'old' : 'ok'}">전체 풀이 ${d ? d + '일 전' : '오늘'}</span>`;
+}
 function conceptStat(cid) {
   let n = 0, c = 0, solved = 0;
   (BY_C[cid] || []).forEach(id => { const a = S.att[id]; if (a) { n += a.n; c += a.c; solved++; } });
@@ -610,7 +621,7 @@ function concepts() {
   const col = s => { const units = [...new Set(CONCEPTS.filter(c => c.s === s).map(c => c.unit))], pass = CONCEPTS.filter(c => c.s === s && cState(c.id) === 'f').length;
     return `<section class="vl ln${s}"><div class="lname"><b><span class="lchip">${s}</span>${s}과목 ${SUBJ[s]}</b><span class="sub">${CONCEPTS.filter(c => c.s === s).length}역 중 ${pass}역 통과</span></div>
     ${units.map(u => `<div class="vu">${esc(u)}</div>${CONCEPTS.filter(c => c.s === s && c.unit === u).map(c => { const st = conceptStat(c.id);
-      return `<div class="stn ${cState(c.id)}" onclick="go('concept',{id:'${c.id}'})"><span class="nm">${esc(c.name)}${S.cdone[c.id] ? '<span class="ck">학습 완료</span>' : ''}</span><span class="sub">${st.n ? pct(st.acc) + ' · ' : ''}${st.total}문항</span></div>`; }).join('')}`).join('')}</section>`; };
+      return `<div class="stn ${cState(c.id)}" onclick="go('concept',{id:'${c.id}'})"><span class="nm">${esc(c.name)}${S.cdone[c.id] ? '<span class="ck">학습 완료</span>' : ''}</span><span class="sub">${st.n ? pct(st.acc) + ' · ' : ''}${st.total}문항${agoTag(c.id, st)}</span></div>`; }).join('')}`).join('')}</section>`; };
   return `<h1>개념</h1><div class="sub">${CONCEPTS.length}개 중 ${done}개 학습 완료 · 역을 누르면 개념 정리와 문제가 나와요</div>
   <div class="list links" style="margin:8px 0 6px"><div class="it" onclick="go('cram')"><span>시험 직전 정리</span><span class="sub">함정과 핵심만 ›</span></div><div class="it" onclick="openLab()"><span>SQL 실습장</span><span class="sub">EMP · DEPT ›</span></div></div>
   ${legend()}
@@ -1052,7 +1063,7 @@ function conceptsOld() {
 function conceptBody(c, inSheet) {
   const st = conceptStat(c.id);
   return `<div class="qmeta"><span class="tag lt${c.s}">${c.s}과목</span>${esc(c.unit)}</div><h1 style="font-size:22px">${esc(c.name)}</h1>
-  <div class="row" style="margin:6px 0 4px"><span class="pill">정답률 ${pct(st.acc)}</span><span class="sub">${st.solved}/${st.total}문항 풀이</span></div>
+  <div class="row" style="margin:6px 0 4px"><span class="pill">정답률 ${pct(st.acc)}</span><span class="sub">${st.solved}/${st.total}문항 풀이</span>${conceptAgo(c.id) != null ? agoTag(c.id, st) : ''}</div>
   <ul class="sum" data-hk="c_${c.id}:s">${c.sum.map(t => `<li>${md(t)}</li>`).join('')}</ul>
   ${c.erdTop ? erdBlock(c.erdTop, { cap: c.capTop }) : ''}${figs(c)}${c.erd ? erdBlock(c.erd, { cap: c.cap }) : ''}${c.tree ? treeBlock(c.tree, { cap: c.tcap }) : ''}${c.ex ? `<pre class="code">${esc(c.ex.join('\n'))}</pre>` : ''}
   ${moreHTML(c)}
@@ -1587,6 +1598,7 @@ function guidePages() {
     { t: '개념 · 실습 · 정리', d: '문제만 풀지 말고 개념 탭도 같이 보세요.', li: [
       '개념 탭은 1·2과목을 노선도처럼 그려 놨어요. 초록으로 채워진 역은 통과, 빨간 역은 약한 개념이에요.',
       '개념을 누르면 요약, 표와 SQL 예시가 있는 정리, 함정이 나오고 <b>이 개념 문제 전부</b>를 바로 풀 수 있어요.',
+      '개념 문제를 한 번씩 다 풀면 역 옆에 <b>전체 풀이 며칠 전</b>이 나와요. 3일이 지나면 빨간색이니 그 개념부터 다시 돌려 보세요.',
       '<b>SQL 실습장</b>에서 EMP·DEPT로 쿼리를 직접 돌려 봐요. 문제를 푼 뒤 "SQL 실행해 보기"를 누르면 그 SQL이 그대로 들어가요.',
       '<b>시험 직전 정리</b>는 점수 영향이 큰 개념 순서로 함정과 핵심만 모아 둔 화면이에요. 플래시카드도 홈에서 열 수 있어요.'] },
     { t: '모의고사와 분석', d: '실력 확인은 모의고사로, 약점은 분석 탭으로.', li: [
