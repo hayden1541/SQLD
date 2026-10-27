@@ -529,7 +529,7 @@ function render() {
   const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide, kknote }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
   erdFit();
-  hlHide(); hlMount($('#app'));
+  hlHide(); hlMount($('#app')); inkBarFloat();
   inkMount();
 }
 
@@ -866,11 +866,11 @@ function inkFling(v) { // 손을 뗀 뒤에도 조금 더 미끄러지듯 스크
 const INK_COLS = ['#e5484d', '#2f6fde', '#1f9d55'];
 function inkBar() {
   if (!INK.on) return `<button class="inkbtn" onclick="inkToggle()">✎ 필기</button>`;
-  return `<div class="inkbar">${INK_COLS.map(c => `<button class="dot ${!INK.er && !INK.las && INK.col === c ? 'on' : ''}" style="--c:${c}" onclick="INK.col='${c}';INK.er=false;INK.las=false;inkBarRefresh()"></button>`).join('')}
+  return `<div class="inkbar-w"><div class="inkbar">${INK_COLS.map(c => `<button class="dot ${!INK.er && !INK.las && INK.col === c ? 'on' : ''}" style="--c:${c}" onclick="INK.col='${c}';INK.er=false;INK.las=false;inkBarRefresh()"></button>`).join('')}
     <button class="inkbtn las ${INK.las ? 'on' : ''}" onclick="INK.las=!INK.las;INK.er=false;inkBarRefresh()" title="떼면 사라지는 펜">레이저</button>
     <button class="inkbtn ${INK.er ? 'on' : ''}" onclick="INK.er=!INK.er;INK.las=false;inkBarRefresh()">지우개</button>
     <button class="inkbtn" onclick="inkClear()">전체 지우기</button>
-    <button class="inkbtn on" onclick="inkToggle()">완료</button></div>`;
+    <button class="inkbtn on" onclick="inkToggle()">완료</button></div></div>`;
 }
 function inkToggle() { INK.on = !INK.on; INK.er = false; INK.las = false; INK.L = []; render(); }
 // 애플펜슬 몸통 두 번 탭(앱이 호출): 문제 풀이·모의고사 화면에서만 필기 켜기/끄기
@@ -884,7 +884,19 @@ function inkUndo() {
   inkDraw(); toast('방금 그은 획을 지웠어요');
 }
 document.addEventListener('keydown', e => { if (INK.on && $('#inkw') && (e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); inkUndo(); } });
-function inkBarRefresh() { const b = document.querySelector('.inkbar'); if (b) b.outerHTML = inkBar(); }
+function inkBarRefresh() { const b = document.querySelector('.inkbar-w'); if (b) b.outerHTML = inkBar(); inkBarFloat(); }
+// 막대가 화면 위로 밀려 올라가면 위에 띄워 고정
+function inkBarFloat() {
+  const w = document.querySelector('.inkbar-w'), b = w && w.firstElementChild; if (!b) return;
+  let pr = document.getElementById('satp'); if (!pr) { pr = document.createElement('div'); pr.id = 'satp'; pr.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none'; document.body.appendChild(pr); }
+  const st = pr.offsetHeight, r = w.getBoundingClientRect();
+  if (r.top < st + 6) {
+    if (!b.classList.contains('float')) { w.style.height = b.offsetHeight + 'px'; b.classList.add('float'); }
+    b.style.right = Math.max(8, window.innerWidth - r.right - 8) + 'px';
+  } else if (b.classList.contains('float')) { b.classList.remove('float'); b.style.right = ''; w.style.height = ''; }
+}
+window.addEventListener('scroll', inkBarFloat, { passive: true });
+window.addEventListener('resize', inkBarFloat);
 function inkClear() { const w = $('#inkw'); if (!w) return; INK.s[w.dataset.q] = []; inkDraw(); }
 function inkKey() { const w = $('#inkw'); return w ? w.dataset.q : null; }
 // 필기 기준 블록: 작은 블록부터 (보기·지문·표·코드·해설 …), 없으면 좌우 영역
