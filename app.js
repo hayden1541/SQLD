@@ -1,9 +1,14 @@
 'use strict';
 var THEMES = [['auto', '자동'], ['light', '화이트'], ['dark', '다크'], ['black', '블랙'], ['paper', '종이']];
+var DESIGNS = [['', '기본', '노선도 디자인 그대로'], ['apple', 'Apple', '아이폰 설정 화면처럼 연회색 바탕에 흰 카드, 파란 알약 버튼'], ['linear', 'Linear', '군더더기 없는 화면에 보라빛 파랑 하나, 덜 둥근 모서리'], ['notion', 'Notion', '살짝 누런 종이 바탕, 주황 메인 버튼에 파랑 강조'], ['wise', 'Wise', '세이지 그린 바탕에 연두 버튼, 크게 둥근 모서리']];
+function designGet() { try { return localStorage.getItem('sqld_design') || ''; } catch (e) { return ''; } }
+function designSet(d) { try { localStorage.setItem('sqld_design', d); } catch (e) {} themeApply(themeGet()); render(); }
 function themeApply(t) {
   const r = document.documentElement; if (!t || t === 'auto') delete r.dataset.theme; else r.dataset.theme = t;
+  const dz = designGet(); if (dz) r.dataset.design = dz; else delete r.dataset.design;
   const dark = t === 'dark' || t === 'black' || ((!t || t === 'auto') && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  const col = { black: '#000000', paper: '#F5EFE3' }[t] || (dark ? '#0f1115' : '#ffffff');
+  let col = { black: '#000000', paper: '#F5EFE3' }[t] || (dark ? '#0f1115' : '#ffffff');
+  try { const bg = getComputedStyle(r).getPropertyValue('--bg').trim(); if (bg) col = bg; } catch (e) {}
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
   const m = document.createElement('meta'); m.name = 'theme-color'; m.content = col; document.head.appendChild(m);
 }
@@ -1214,6 +1219,8 @@ function settings() {
   <div class="card" onclick="go('guide')" style="cursor:pointer"><div class="top"><b>사용설명서</b><span class="sub">처음 쓰는 법 ›</span></div></div>
   <div class="card"><b>화면 테마</b><div class="seg theme-seg">${THEMES.map(([k, l]) => `<button class="${themeGet() === k ? 'on' : ''}" onclick="themeSet('${k}')">${l}</button>`).join('')}</div>
   <div class="sub" style="font-size:12.5px">자동은 기기의 라이트·다크 설정을 따라가요. 블랙은 배경이 완전 검정이라 OLED 화면에서 눈이 편하고 배터리를 덜 써요.</div></div>
+  <div class="card"><b>디자인</b><div class="seg design-seg">${DESIGNS.map(([k, l]) => `<button class="${designGet() === k ? 'on' : ''}" onclick="designSet('${k}')">${l}</button>`).join('')}</div>
+  <div class="sub" style="font-size:12.5px">${esc((DESIGNS.find(x => x[0] === designGet()) || DESIGNS[0])[2])}. 화면 테마(라이트·다크)와 같이 적용돼요.</div></div>
   <div class="card"><b>시험일</b><input type="date" value="${S.set.exam}" onchange="S.set.exam=this.value;save()">
   <b style="display:block;margin-top:12px">하루 목표 문항 수</b><input type="number" min="5" max="200" value="${S.set.goal}" onchange="S.set.goal=Math.max(5,+this.value||30);save()"></div>
   <div class="card"><b>문제 풀이</b>
