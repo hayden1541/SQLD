@@ -841,7 +841,7 @@ function tblBlock(q, always) {
 }
 
 // ───────── 필기 ─────────
-const INK = { on: false, col: '#e5484d', er: false, s: {}, pen: false };
+const INK = { on: false, col: '#e5484d', er: false, s: {}, pen: false, las: false, L: [] };
 // 개념 필기 보존: 이 기기에 저장 (문제 필기는 풀이를 새로 시작하면 비움)
 const INK_CK = 'sqld_ink_c';
 try { const sv = JSON.parse(localStorage.getItem(INK_CK) || '{}'); Object.keys(sv).forEach(k => { if (/^c_/.test(k) && Array.isArray(sv[k])) INK.s[k] = sv[k]; }); } catch (e) {}
@@ -866,12 +866,13 @@ function inkFling(v) { // 손을 뗀 뒤에도 조금 더 미끄러지듯 스크
 const INK_COLS = ['#e5484d', '#2f6fde', '#1f9d55'];
 function inkBar() {
   if (!INK.on) return `<button class="inkbtn" onclick="inkToggle()">✎ 필기</button>`;
-  return `<div class="inkbar">${INK_COLS.map(c => `<button class="dot ${!INK.er && INK.col === c ? 'on' : ''}" style="--c:${c}" onclick="INK.col='${c}';INK.er=false;inkBarRefresh()"></button>`).join('')}
-    <button class="inkbtn ${INK.er ? 'on' : ''}" onclick="INK.er=!INK.er;inkBarRefresh()">지우개</button>
+  return `<div class="inkbar">${INK_COLS.map(c => `<button class="dot ${!INK.er && !INK.las && INK.col === c ? 'on' : ''}" style="--c:${c}" onclick="INK.col='${c}';INK.er=false;INK.las=false;inkBarRefresh()"></button>`).join('')}
+    <button class="inkbtn las ${INK.las ? 'on' : ''}" onclick="INK.las=!INK.las;INK.er=false;inkBarRefresh()" title="떼면 사라지는 펜">레이저</button>
+    <button class="inkbtn ${INK.er ? 'on' : ''}" onclick="INK.er=!INK.er;INK.las=false;inkBarRefresh()">지우개</button>
     <button class="inkbtn" onclick="inkClear()">전체 지우기</button>
     <button class="inkbtn on" onclick="inkToggle()">완료</button></div>`;
 }
-function inkToggle() { INK.on = !INK.on; INK.er = false; render(); }
+function inkToggle() { INK.on = !INK.on; INK.er = false; INK.las = false; INK.L = []; render(); }
 // 애플펜슬 몸통 두 번 탭(앱이 호출): 문제 풀이·모의고사 화면에서만 필기 켜기/끄기
 window.onPencilTap = () => {
   if ((view !== 'quiz' && view !== 'mockrun' && view !== 'concept') || document.getElementById('sheet')) return;
@@ -915,9 +916,27 @@ function inkDraw() {
   if (/^c_/.test(inkKey())) inkSaveSoon();
   const cv = $('#ink'); if (!cv) return; const ctx = cv.getContext('2d'), k = inkScale(cv);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.setTransform(k, 0, 0, k, 0, 0);
-  const L = INK.s[inkKey()] || []; if (!L.length) return;
+  const L = INK.s[inkKey()] || []; if (!L.length) return inkLas(ctx);
   const an = L.some(st => st.a) ? inkAnchors($('#inkw'), cv) : [], at = {}; an.forEach(b => { at[b.id] = b; });
   L.forEach(st => { const b = st.a && at[st.a]; inkStroke(ctx, st, st.a ? (b ? [b.x, b.y] : st.o) : null); });
+  inkLas(ctx);
+}
+function inkLas(ctx) {
+  if (!INK.L.length) return; const now = performance.now();
+  INK.L.forEach(st => {
+    const p = st.p.map(q => [q[0] + st.o[0], q[1] + st.o[1]]), al = st.up ? Math.max(0, 1 - (now - st.up) / 400) : 1; if (!p.length || !al) return;
+    ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = al; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(255,45,45,.85)'; ctx.shadowBlur = 12; ctx.strokeStyle = '#ff3b30'; ctx.lineWidth = 3.2;
+    ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); if (p.length === 1) ctx.lineTo(p[0][0] + 0.1, p[0][1] + 0.1); for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]); ctx.stroke();
+    if (!st.up) { const t = p[p.length - 1]; ctx.fillStyle = '#ff5a52'; ctx.beginPath(); ctx.arc(t[0], t[1], 4.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  });
+}
+let inkLasR = 0;
+function inkLasFade() { // 뗀 레이저 선을 흐리게 지우기
+  cancelAnimationFrame(inkLasR);
+  const step = () => { const now = performance.now(); INK.L = INK.L.filter(st => !st.up || now - st.up < 400); inkDraw(); if (INK.L.some(st => st.up)) inkLasR = requestAnimationFrame(step); };
+  inkLasR = requestAnimationFrame(step);
 }
 let inkRO = null;
 function inkMount() {
@@ -942,7 +961,7 @@ function inkMount() {
     c.p = [a, b]; };
   const toLine = c => { if (c !== cur || c.e || c.ln) return; const a = c.p[0], b = c.p[c.p.length - 1]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 24) return; c.ln = 1; snapEnd(c); inkDraw(); };
   const pt = e => { const r = cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) * 10) / 10, Math.round((e.clientY - r.top) * 10) / 10]; };
-  const dropCur = () => { if (!cur) return; const l = INK.s[inkKey()] || [], i = l.indexOf(cur); if (i >= 0) l.splice(i, 1); cur = null; inkDraw(); };
+  const dropCur = () => { if (!cur) return; if (cur.las) { INK.L = INK.L.filter(x => x !== cur); cur = null; inkDraw(); return; } const l = INK.s[inkKey()] || [], i = l.indexOf(cur); if (i >= 0) l.splice(i, 1); cur = null; inkDraw(); };
   const startPan = e => { pan = { id: e.pointerId, y: e.clientY, go: false }; try { cv.setPointerCapture(e.pointerId); } catch (_) {} };
   cv.onpointerdown = e => {
     if (!INK.on) return;
@@ -958,6 +977,7 @@ function inkMount() {
     if (cur) return;
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     const k = inkKey(), p0 = pt(e), b = inkPick(inkAnchors(w, cv), p0[0], p0[1]), o = b ? [b.x, b.y] : [0, 0];
+    if (INK.las) { cur = { las: 1, c: '#ff3b30', p: [p0], id: e.pointerId, t: e.pointerType, o: [0, 0] }; INK.L.push(cur); inkDraw(); return; }
     cur = { c: INK.col, e: INK.er, p: [[p0[0] - o[0], p0[1] - o[1]]], id: e.pointerId, t: e.pointerType, a: b ? b.id : '', o }; (INK.s[k] = INK.s[k] || []).push(cur); w.classList.add('hasink'); inkDraw();
   };
   cv.onpointermove = e => {
@@ -967,6 +987,7 @@ function inkMount() {
       if (pan.go || Math.abs(dy) > 14) { pan.go = true; window.scrollBy(0, -dy); const tn = performance.now(); pan.v = -dy / Math.max(8, tn - (pan.t || tn - 16)); pan.t = tn; pan.y = e.clientY; } return; }
     if (!cur || e.pointerId !== cur.id) return; e.preventDefault();
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; (evs.length ? evs : [e]).forEach(ev => { const q = pt(ev); cur.p.push([q[0] - cur.o[0], q[1] - cur.o[1]]); });
+    if (cur.las) { inkDraw(); return; }
     if (cur.ln) { snapEnd(cur); inkDraw(); return; }
     { const q = cur.p[cur.p.length - 1]; if (!cur.h || Math.hypot(q[0] - cur.h[0], q[1] - cur.h[1]) > 4) { cur.h = q; clearTimeout(holdT); const c = cur; holdT = setTimeout(() => toLine(c), 450); } }
     const ctx = cv.getContext('2d'), k = inkScale(cv); ctx.setTransform(k, 0, 0, k, 0, 0);
@@ -974,7 +995,7 @@ function inkMount() {
   };
   cv.onpointerup = cv.onpointercancel = e => { if (e.pointerType === 'pen') penAt = Date.now(); tch.delete(e.pointerId); delete tpos[e.pointerId];
     if (tp && !tch.size) { if (!tp.moved && Date.now() - tp.t < 350 && e.type === 'pointerup') { if (Date.now() - lastTT < 500) { lastTT = 0; inkUndo(); } else lastTT = Date.now(); } tp = null; }
-    if (pan && e.pointerId === pan.id) { if (pan.go && pan.t && performance.now() - pan.t < 80) inkFling(pan.v || 0); pan = null; } if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; cur = null; } };
+    if (pan && e.pointerId === pan.id) { if (pan.go && pan.t && performance.now() - pan.t < 80) inkFling(pan.v || 0); pan = null; } if (cur && e.pointerId === cur.id) { clearTimeout(holdT); delete cur.h; if (cur.las) { cur.up = performance.now(); inkLasFade(); } cur = null; } };
 }
 // 필기 중에는 필기 도구 말고는 아무것도 눌리지 않게 (보기·버튼·상단 버튼 포함)
 window.addEventListener('click', e => {
@@ -1594,6 +1615,7 @@ function guidePages() {
       '문제 오른쪽 위 <b>✎ 필기</b>를 누르면 필기 모드예요. 다 쓰면 <b>완료</b>를 눌러야 보기를 고를 수 있어요.',
       '펜으로 한 번 쓰면 <b>펜 모드</b>가 켜져서 손가락은 스크롤만 돼요. 설정에서 끌 수 있어요.',
       '선을 긋다가 펜을 떼지 않고 잠깐 멈추면 <b>직선</b>으로 바뀌어요. 잘못 그었으면 <b>두 손가락으로 두 번 톡톡</b> 치면 방금 그은 획이 지워져요.',
+      '<b>레이저</b>를 고르면 읽으면서 짚을 때 쓰는 빨간 빛 펜이 돼요. 펜을 떼면 바로 사라지고 기록에 남지 않아요.',
       '형광펜은 글자를 <b>꾹 눌러</b> 단어를 고르고, 끌어서 범위를 늘린 뒤 색을 누르면 돼요. 칠한 곳을 누르면 색 바꾸기·지우기가 나와요.'] },
     { t: '개념 · 실습 · 정리', d: '문제만 풀지 말고 개념 탭도 같이 보세요.', li: [
       '개념 탭은 1·2과목을 노선도처럼 그려 놨어요. 초록으로 채워진 역은 통과, 빨간 역은 약한 개념이에요.',
