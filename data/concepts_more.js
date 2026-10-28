@@ -728,6 +728,12 @@ s20: [
     out: { cols: ["ENAME", "SAL", "DNAME"], rows: [["SCOTT", "3000", "RESEARCH"], ["KING", "5000", "ACCOUNTING"], ["FORD", "3000", "RESEARCH"]] },
     chk: "SELECT ENAME, SAL, (SELECT DNAME FROM DEPT D WHERE D.DEPTNO = E.DEPTNO) FROM EMP E WHERE SAL >= 3000 ORDER BY EMPNO" },
   { p: "스칼라 서브쿼리는 행마다 한 번씩 값을 가져오는 조인처럼 동작합니다. 짝이 없으면 오류가 아니라 NULL이 나와서 OUTER JOIN과 결과가 같습니다." },
+  { h: "바깥 컬럼을 안 쓰는 스칼라 서브쿼리" },
+  { code: ["SELECT ENAME, SAL,", "       (SELECT MAX(SAL) FROM EMP) AS M", "FROM EMP;"],
+    out: { cols: ["ENAME", "SAL", "M"], rows: [["SMITH", "800", "5000"], ["ALLEN", "1600", "5000"], ["WARD", "1250", "5000"], ["JONES", "2975", "5000"], ["MARTIN", "1250", "5000"], ["BLAKE", "2850", "5000"], ["CLARK", "2450", "5000"], ["SCOTT", "3000", "5000"], ["KING", "5000", "5000"], ["TURNER", "1500", "5000"], ["ADAMS", "1100", "5000"], ["JAMES", "950", "5000"], ["FORD", "3000", "5000"], ["MILLER", "1300", "5000"]] },
+    chk: "SELECT ENAME, SAL, (SELECT MAX(SAL) FROM EMP) FROM EMP ORDER BY EMPNO" },
+  { p: "바깥 EMP가 14행이라 M 칸도 14번 채웁니다. 괄호 안은 바깥 행과 상관없이 늘 EMP 전체의 최댓값이라 **14행 모두 5000**입니다. 최댓값을 가진 KING 행에만 붙고 나머지가 NULL이 되는 게 아닙니다. 실제로는 Oracle이 한 번만 계산해서 재사용하지만, 행마다 같은 값이 붙는 결과는 같습니다." },
+  { p: "그래서 GROUP BY 없이 `SELECT EMPNO, MAX(SAL) FROM EMP;`는 오류(ORA-00937)지만 위 쿼리는 정상입니다. 집계가 괄호 안에 갇혀 있어서 바깥 쿼리는 값 하나(5000)를 붙인 평범한 14행 조회가 되기 때문입니다." },
   { h: "상관 / 비상관" },
   { li: [
     "**비상관**: 서브쿼리가 바깥 쿼리 컬럼을 안 씀. 한 번만 실행해 결과를 넘김",
