@@ -505,7 +505,22 @@ s08: [
     out: { cols: ["ENAME", "JOB", "SAL"], rows: [["ALLEN", "SALESMAN", "1600"], ["WARD", "SALESMAN", "1250"], ["JONES", "MANAGER", "2975"], ["MARTIN", "SALESMAN", "1250"], ["TURNER", "SALESMAN", "1500"]] },
     chk: "SELECT ENAME, JOB, SAL FROM EMP WHERE JOB='SALESMAN' OR JOB='MANAGER' AND SAL > 2900 ORDER BY EMPNO" },
   { p: "SAL > 2900 조건이 MANAGER에만 붙어서 급여가 낮은 SALESMAN 네 명도 다 나옵니다. 'SALESMAN이나 MANAGER 중 급여 2900 초과'를 원했다면 `(JOB = 'SALESMAN' OR JOB = 'MANAGER') AND SAL > 2900`처럼 괄호가 필요합니다." },
-  { p: "문제를 풀 때는 괄호가 없는 조건식에 AND 쪽부터 괄호를 쳐 놓고 보면 실수가 줄어듭니다." }
+  { p: "문제를 풀 때는 괄호가 없는 조건식에 AND 쪽부터 괄호를 쳐 놓고 보면 실수가 줄어듭니다." },
+  { h: "괄호 앞 NOT 풀기 (드모르간)" },
+  { p: "`NOT (조건1 OR 조건2)`처럼 괄호 앞에 NOT이 붙으면 NOT을 괄호 안으로 넣어서 풉니다. 이때 각 조건만 뒤집는 게 아니라 **OR와 AND도 서로 바뀝니다.** 'A이거나 B'의 반대는 'A도 아니고 B도 아니다'라서 둘 다 피해야 하기 때문입니다." },
+  { t: { cols: ["괄호 앞 NOT", "풀어 쓴 조건"], rows: [
+    ["NOT (A OR B)", "NOT A **AND** NOT B"],
+    ["NOT (A AND B)", "NOT A **OR** NOT B"],
+    ["NOT (C = 1)", "C <> 1"],
+    ["NOT (C > 10)", "C <= 10"],
+    ["NOT (C IS NULL)", "C IS NOT NULL"],
+    ["NOT (C IN (1, 2))", "C NOT IN (1, 2)"],
+    ["NOT (C BETWEEN 1 AND 5)", "C NOT BETWEEN 1 AND 5 (= C < 1 OR C > 5)"]] } },
+  { code: ["SELECT ENAME, DEPTNO, JOB FROM EMP", "WHERE NOT (DEPTNO = 10 OR JOB = 'CLERK');", "-- = DEPTNO <> 10 AND JOB <> 'CLERK'"],
+    out: { cols: ["ENAME", "DEPTNO", "JOB"], rows: [["ALLEN", "30", "SALESMAN"], ["WARD", "30", "SALESMAN"], ["JONES", "20", "MANAGER"], ["MARTIN", "30", "SALESMAN"], ["BLAKE", "30", "MANAGER"], ["SCOTT", "20", "ANALYST"], ["TURNER", "30", "SALESMAN"], ["FORD", "20", "ANALYST"]] },
+    chk: "SELECT ENAME, DEPTNO, JOB FROM EMP WHERE NOT (DEPTNO = 10 OR JOB = 'CLERK') ORDER BY EMPNO" },
+  { p: "10번 부서(CLARK, KING, MILLER)와 CLERK(SMITH, ADAMS, JAMES, MILLER)를 **둘 다** 빼서 8명이 남습니다. OR로 잘못 풀면 10번이 아니거나 CLERK가 아닌 사람, 즉 MILLER를 뺀 13명이 나옵니다." },
+  { p: "NULL은 뒤집어도 NULL입니다. `C1 <> 1`에서 C1이 NULL인 행은 UNKNOWN이라 NOT을 풀기 전이든 후든 결과에서 빠집니다." }
 ],
 
 s09: [
