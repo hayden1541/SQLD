@@ -1104,7 +1104,9 @@ function conceptBody(c, inSheet) {
   ${inSheet ? '' : `<div class="grid2" style="margin-top:14px">
     <button class="btn" onclick="startPractice({cs:['${c.id}'],n:${st.total},order:'new',title:'${esc(c.name)}'})">이 개념 문제 ${st.total}개 풀기</button>
     <button class="btn ${S.cdone[c.id] ? 'line' : 'ghost'}" onclick="togDone('${c.id}')">${S.cdone[c.id] ? '학습 완료 취소' : '학습 완료'}</button></div>
-    <div class="grid2" style="margin-top:10px">${[1, 2, 3, 4].map(d => { const n = (BY_C[c.id] || []).filter(id => QMAP[id].d === d).length; return `<button class="btn line" ${n ? '' : 'disabled'} onclick="startPractice({cs:['${c.id}'],d:[${d}],n:${n},title:'${esc(c.name)}'})">${DLABEL[d]} ${n}</button>`; }).join('')}</div>${(() => { const un = (BY_C[c.id] || []).filter(id => !S.att[id]).length, wr = (BY_C[c.id] || []).filter(id => { const a = S.att[id]; return a && (a.wr > 0 || a.w); });
+    <div class="seg cdf" style="margin-top:12px">${[['all', '전체'], ['un', '안 푼 문제'], ['wr', '틀린 문제']].map(([k, l]) => `<button class="${CDF === k ? 'on' : ''}" onclick="CDF='${k}';render()">${l}</button>`).join('')}</div>
+    <div class="grid2" style="margin-top:8px">${[1, 2, 3, 4].map(d => { const L = cdfIds(c.id, d), n = L.length, tt = esc(c.name) + (CDF === 'un' ? ' · 안 푼 ' : CDF === 'wr' ? ' · 틀린 ' : ' · ') + DLABEL[d];
+      return `<button class="btn line" ${n ? '' : 'disabled'} onclick="${CDF === 'all' ? `startPractice({cs:['${c.id}'],d:[${d}],n:${n},title:'${tt}'})` : `startPractice({ids:[${L.join(',')}],n:${n},order:'rand',title:'${tt}'})`}">${DLABEL[d]} ${n}</button>`; }).join('')}</div>${(() => { const un = (BY_C[c.id] || []).filter(id => !S.att[id]).length, wr = (BY_C[c.id] || []).filter(id => { const a = S.att[id]; return a && (a.wr > 0 || a.w); });
       const b1 = un ? `<button class="btn ghost" onclick="startPractice({cs:['${c.id}'],un:1,n:${un},order:'rand',title:'${esc(c.name)} · 안 푼 문제'})">안 푼 문제 ${un}개</button>` : '';
       const b2 = wr.length ? `<button class="btn ghost cwr" onclick="startPractice({ids:[${wr.join(',')}],n:${wr.length},order:'rand',title:'${esc(c.name)} · 틀린 문제'})">틀린 문제 ${wr.length}개</button>` : '';
       return b1 || b2 ? `<div class="${b1 && b2 ? 'grid2' : ''}" style="margin-top:8px">${b1}${b2}</div>` : ''; })()}`}`;
@@ -1122,6 +1124,12 @@ function concept() {
   const k = 'c_' + P.id;
   return `<div class="top" style="margin-top:4px"><button class="icon-btn" onclick="go('concepts')">← 개념 목록</button>${inkBar()}</div>
   <div class="inkw inkall ${INK.on ? 'inking' : ''}${(INK.s[k] || []).length ? ' hasink' : ''}" id="inkw" data-q="${k}"><div class="card cink" style="margin-top:12px">${conceptBody(CMAP[P.id])}</div><canvas class="ink" id="ink"></canvas></div>`;
+}
+// 개념 화면 난이도 버튼 범위: all 전체 · un 안 푼 문제 · wr 틀린 적 있는 문제
+let CDF = 'all';
+function cdfIds(cid, d) {
+  return (BY_C[cid] || []).filter(id => { if (QMAP[id].d !== d) return false; const a = S.att[id];
+    return CDF === 'un' ? !a : CDF === 'wr' ? !!(a && (a.wr > 0 || a.w)) : true; });
 }
 function togDone(id) { if (S.cdone[id]) delete S.cdone[id]; else S.cdone[id] = today(); save(); render(); }
 
