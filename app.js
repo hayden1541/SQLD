@@ -766,12 +766,68 @@ function quiz() {
     ${QS.rv && QS.rv[q.id] ? `<div class="rvnote">${esc(QS.rv[q.id])}</div>` : ''}
     ${QS.mode !== 'mockview' ? fbRow(q, ok) : ''}
     ${plusH(q)}
+    ${stepsH(q)}
     <div class="row" style="flex-wrap:wrap"><button class="chip c" onclick="showConcept('${c.id}')">개념 보기: ${esc(c.name)}</button>
     ${labable(q) ? `<button class="chip c" onclick="openLab(labSqlOf(QMAP[${q.id}]),'quiz')">SQL 실행해 보기</button>` : ''}</div>
     <div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="nextQ()">${QS.i + 1 < QS.ids.length ? '다음 문제 ›' : '결과 보기'}</button></div>`
   : `<div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="check()" ${QS.pick == null ? 'disabled' : ''}>${S.set.instant ? '보기를 누르면 바로 채점' : '정답 확인'}</button></div>`}
   </div></div><canvas class="ink" id="ink"></canvas></div>
   <div class="sub" style="text-align:center;margin-top:14px">${esc(q.src)} · #${q.id}</div>`;
+}
+
+// ───────── 단계별로 보기 ─────────
+const STP = { id: null, i: 0, open: false };
+const STP_K = { from: 'FROM', join: '조인', where: 'WHERE', rownum: 'ROWNUM', group: 'GROUP BY', agg: '집계', having: 'HAVING', win: '윈도우 함수', sel: 'SELECT', view: '인라인 뷰', sub: '서브쿼리', connect: '계층 전개', dml: 'DML', ddl: 'DDL', tcl: 'TCL', err: '오류' };
+function stpLabel(s) {
+  const pre = (s.t.match(/^\(([가-하]|\d)\)\s/) || [])[0] || '';
+  if (s.f) return pre + '결과';
+  if (s.k === 'tcl') return pre + s.t.replace(/^\([^)]*\)\s/, '').split(' ')[0];
+  if (s.k === 'view') return pre + '인라인 뷰 결과';
+  if (s.k === 'dml' && /^(\([^)]*\)\s)?ON DELETE/.test(s.t)) return pre + '참조 동작';
+  if (s.k === 'dml') return pre + s.t.replace(/^\([^)]*\)\s/, '').split(' ')[0];
+  return pre + (/인라인 뷰/.test(s.t) && s.k === 'from' ? '뷰 · FROM' : STP_K[s.k] || s.t.split(' ')[0]);
+}
+function stpTable(b) {
+  const head = `<tr>${b.c.map(c => `<th>${esc(c)}</th>`).join('')}</tr>`;
+  if (!b.r.length) return `<div class="stp-tb"><table class="t"><thead>${head}</thead></table><div class="empty">행 없음 (0행)</div></div>`;
+  const body = b.r.map((r, j) => {
+    const cl = [];
+    if (b.k && !b.k[j]) cl.push('rm');
+    if (b.m && b.m[j]) cl.push('chg');
+    if (b.g) { if (b.g[j] % 2) cl.push('g1'); if (j && b.g[j] !== b.g[j - 1]) cl.push('gs'); }
+    return `<tr${cl.length ? ` class="${cl.join(' ')}"` : ''}>${r.map(v => v === null ? '<td class="nul">NULL</td>' : `<td>${esc(v)}</td>`).join('')}</tr>`;
+  }).join('');
+  return `<div class="stp-tb"><table class="t"><thead>${head}</thead><tbody>${body}</tbody></table></div>` +
+    (b.n > b.r.length ? `<div class="stp-more">${b.n}행 중 앞 ${b.r.length}행만 보여요</div>` : '');
+}
+function stepsH(q) {
+  if (!window.STEP_IDS || !STEP_IDS.has(q.id)) return '';
+  if (STP.id !== q.id) { STP.id = q.id; STP.i = 0; STP.open = !!S.set.stpAuto; if (STP.open) stpLoad(); }
+  if (!STP.open) return `<button class="stp-open" onclick="stpOpen()"><b>단계별로 보기</b><span>쿼리가 실행되는 순서대로 표가 어떻게 바뀌는지 볼 수 있어요</span></button>`;
+  const L = window.STEPS && STEPS[q.id];
+  if (!L) return `<div class="stp"><div class="stp-hd"><b>단계별로 보기</b></div><div class="stp-d" style="margin-top:8px">${window.STEPS ? '이 문제는 단계 표가 없어요' : '불러오는 중…'}</div></div>`;
+  const i = Math.min(STP.i, L.length - 1), s = L[i], b = s.b;
+  const src = L[0].s === 'opt' ? `<div class="stp-src">정답 보기 ${MK[q.a]}의 SQL을 실행한 과정이에요</div>` : '';
+  const lg = b ? [b.k && b.k.some(x => !x) ? '<span class="lrm">흐리게 그은 줄은 이 단계에서 빠지는 행</span>' : '', b.g ? '<span class="lg">굵은 선 사이가 한 그룹</span>' : '', b.m && b.m.some(x => x) ? '<span class="lm">노란 줄은 새로 들어오거나 바뀐 행</span>' : ''].join('') : '';
+  return `<div class="stp${s.f ? ' fin' : ''}" id="stp"><div class="stp-hd"><b>단계별로 보기</b><button onclick="stpClose()">접기</button></div>${src}
+    <div class="stp-rail">${L.map((x, k) => `<button class="${k === i ? 'on' : ''}${x.f ? ' fin' : ''}" onclick="stpGo(${k})"><i>${k + 1}</i>${esc(stpLabel(x))}</button>`).join('')}</div>
+    <div class="stp-t">${esc(s.t)}</div>${s.d ? `<div class="stp-d">${esc(s.d)}</div>` : ''}
+    ${b ? stpTable(b) : ''}${lg ? `<div class="stp-lg">${lg}</div>` : ''}
+    <div class="stp-nav"><button class="btn line" onclick="stpGo(${i - 1})" ${i ? '' : 'disabled'}>‹ 이전 단계</button><button class="btn ${i + 1 < L.length ? 'ghost' : 'line'}" onclick="stpGo(${i + 1})" ${i + 1 < L.length ? '' : 'disabled'}>${i + 1 < L.length ? '다음 단계 ›' : '마지막 단계'}</button></div></div>`;
+}
+let stpLoading = null;
+function stpLoad() {
+  if (window.STEPS || stpLoading) return stpLoading;
+  stpLoading = loadScript('data/steps.js').then(() => render()).catch(() => { stpLoading = null; toast('단계 표를 불러오지 못했어요'); });
+  return stpLoading;
+}
+function stpOpen() { STP.open = true; S.set.stpAuto = 1; save(); stpLoad(); render(); }
+function stpClose() { STP.open = false; S.set.stpAuto = 0; save(); render(); }
+function stpGo(k) {
+  const L = window.STEPS && STEPS[STP.id]; if (!L || k < 0 || k >= L.length) return;
+  STP.i = k; const el = document.getElementById('stp'), y = el ? el.getBoundingClientRect().top : 0;
+  render();
+  const e2 = document.getElementById('stp'); if (e2) { const dy = e2.getBoundingClientRect().top - y; if (Math.abs(dy) > 1) window.scrollBy(0, dy); const on = e2.querySelector('.stp-rail .on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' }); }
 }
 function pick(k) { if (QS.shown) return; QS.pick = k; if (S.set.instant) { check(); return; } render(); }
 function check() { const q = QMAP[QS.ids[QS.i]]; if (QS.pick == null) return; const ok = QS.pick === q.a; QS.res[q.id] = ok; (QS.picks = QS.picks || {})[q.id] = QS.pick; const rm = record(q.id, ok); if (rm) (QS.rv = QS.rv || {})[q.id] = rm; QS.shown = true; snapQS(); render(); }
