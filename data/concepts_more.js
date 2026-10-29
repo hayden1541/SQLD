@@ -1299,7 +1299,27 @@ s13: [
     chk: "SELECT S.GRADE, COUNT(*) FROM EMP E JOIN SALGRADE S ON E.SAL BETWEEN S.LOSAL AND S.HISAL GROUP BY S.GRADE ORDER BY 1" },
   { p: "= 대신 범위 조건으로 짝을 찾는 조인입니다. 등급 구간이 겹치지 않게 짜여 있어서 사원마다 정확히 한 등급에 붙습니다." },
   { h: "INNER 조인에서 ON과 WHERE" },
-  { p: "INNER JOIN에서는 조건을 ON에 두든 WHERE에 두든 결과가 같습니다. 차이가 생기는 건 OUTER JOIN일 때뿐입니다." }
+  { p: "INNER JOIN에서는 조건을 ON에 두든 WHERE에 두든 결과가 같습니다. 차이가 생기는 건 OUTER JOIN일 때뿐입니다." },
+  { h: "Oracle식 조인 ↔ ANSI 표준" },
+  { p: "시험 문제는 ANSI 문법(JOIN … ON)과 Oracle식 문법(FROM에 쉼표, WHERE에 조인 조건)이 섞여 나옵니다. Oracle식은 FROM에서 일단 모든 조합을 만들고 WHERE의 `=` 조건으로 짝이 맞는 것만 남기는 모양이라, 결과는 INNER JOIN과 같습니다." },
+  { t: { cols: ["종류", "Oracle식 (쉼표 + WHERE)", "ANSI 표준"], rows: [
+    ["INNER (EQUI)", "`FROM EMP E, DEPT D WHERE E.DEPTNO = D.DEPTNO`", "`FROM EMP E JOIN DEPT D ON E.DEPTNO = D.DEPTNO`"],
+    ["NON EQUI", "`FROM EMP E, SALGRADE S WHERE E.SAL BETWEEN S.LOSAL AND S.HISAL`", "`FROM EMP E JOIN SALGRADE S ON E.SAL BETWEEN S.LOSAL AND S.HISAL`"],
+    ["LEFT OUTER", "`WHERE E.DEPTNO = D.DEPTNO(+)`", "`FROM EMP E LEFT JOIN DEPT D ON E.DEPTNO = D.DEPTNO`"],
+    ["RIGHT OUTER", "`WHERE E.DEPTNO(+) = D.DEPTNO`", "`FROM EMP E RIGHT JOIN DEPT D ON E.DEPTNO = D.DEPTNO`"],
+    ["FULL OUTER", "없음 (LEFT, RIGHT를 UNION으로)", "`FULL OUTER JOIN`"],
+    ["CROSS", "`FROM EMP, DEPT` (WHERE 조인 조건 없음)", "`FROM EMP CROSS JOIN DEPT`"],
+    ["테이블 3개", "`FROM A, B, C WHERE A.k = B.k AND B.j = C.j`", "`FROM A JOIN B ON A.k = B.k JOIN C ON B.j = C.j`"]] } },
+  { p: "Oracle식의 WHERE에는 조인 조건과 일반 조건이 섞여 있습니다. **두 테이블 컬럼을 비교하는 조건**은 ON으로, **한 테이블 컬럼과 값을 비교하는 조건**은 WHERE로 옮겨 읽으면 ANSI와 똑같이 보입니다." },
+  { code: ["-- Oracle식", "SELECT E.ENAME, D.DNAME FROM EMP E, DEPT D", "WHERE E.DEPTNO = D.DEPTNO AND E.SAL > 2900;", "", "-- ANSI로 옮기면", "SELECT E.ENAME, D.DNAME FROM EMP E JOIN DEPT D ON E.DEPTNO = D.DEPTNO", "WHERE E.SAL > 2900;"],
+    out: { cols: ["ENAME", "DNAME"], rows: [["JONES", "RESEARCH"], ["SCOTT", "RESEARCH"], ["KING", "ACCOUNTING"], ["FORD", "RESEARCH"]] },
+    chk: "SELECT E.ENAME, D.DNAME FROM EMP E, DEPT D WHERE E.DEPTNO = D.DEPTNO AND E.SAL > 2900 ORDER BY E.EMPNO" },
+  { p: "(+)는 NULL이 채워질 쪽(짝이 없을 수 있는 쪽)에 붙입니다. 자세한 건 'Oracle (+) 조인' 개념에 있어요." },
+  { h: "같은 키가 여러 번 있으면 행이 곱해진다" },
+  { code: ["-- T1(C1, C2): (1, 10) (2, 20) (3, 30) (3, 5)", "-- T2(C1):     1, 3, 3, 5", "SELECT A.C1, A.C2, B.C1", "FROM T1 A, T2 B WHERE A.C1 = B.C1;"],
+    out: { cols: ["A.C1", "A.C2", "B.C1"], rows: [["1", "10", "1"], ["3", "30", "3"], ["3", "30", "3"], ["3", "5", "3"], ["3", "5", "3"]] } },
+  { p: "T1의 3인 행 2개가 T2의 3인 행 2개와 하나씩 다 짝이 되어 2 × 2 = **4행**이 됩니다. 2와 5는 상대 쪽에 짝이 없어서 빠집니다. 그래서 `SUM(A.C2)`는 10 + 30 + 30 + 5 + 5 = **80**입니다. 같은 값을 한 번씩만 더한 45를 고르게 만드는 함정이 자주 나옵니다." },
+  { p: "조인 결과 행 수를 물으면 키 값마다 '왼쪽 개수 × 오른쪽 개수'를 더하면 됩니다. 이 예는 1 × 1 + 2 × 2 = 5행입니다." }
 ],
 
 s16: [

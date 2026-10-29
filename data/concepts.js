@@ -151,7 +151,7 @@ window.CONCEPTS = [ // 핵심기출 보강 반영
 { id: "s12", s: 2, unit: "GROUP BY · 집계", name: "ORDER BY · NULL 정렬",
   sum: ["기본 ASC", "별칭·위치번호·집계함수 사용 가능 (ORDER BY 2)", "**Oracle은 NULL이 가장 큼** → ASC 맨 뒤, DESC 맨 앞", "SQL Server는 NULL이 가장 작음", "NULLS FIRST / LAST로 지정 가능 (Oracle)"] },
 { id: "s13", s: 2, unit: "조인", name: "조인 기본 (EQUI · NON EQUI · INNER)",
-  sum: ["EQUI: = 연결 / NON EQUI: BETWEEN·부등호 (급여 등급)", "INNER: 짝 있는 것만, JOIN만 써도 INNER", "테이블 N개 → 조인 조건 최소 N−1개", "조인 조건 빠지면 카티션 곱"] },
+  sum: ["EQUI: = 연결 / NON EQUI: BETWEEN·부등호 (급여 등급)", "INNER: 짝 있는 것만, JOIN만 써도 INNER", "Oracle식 `FROM A, B WHERE A.k = B.k` = ANSI `FROM A JOIN B ON A.k = B.k` (같은 INNER 조인)", "같은 키가 양쪽에 여러 개면 행이 **곱해짐** (2개 × 2개 = 4행)", "테이블 N개 → 조인 조건 최소 N−1개", "조인 조건 빠지면 카티션 곱"] },
 { id: "s14", s: 2, unit: "조인", name: "NATURAL · USING · CROSS · 별칭 규칙",
   sum: ["NATURAL: 같은 이름 컬럼 **전부**로 조인, ON·USING 같이 못 씀", "USING(컬럼) / NATURAL의 공통 컬럼엔 **별칭 금지**",
         "ON 조인에서 양쪽에 있는 컬럼은 **별칭 필수** (ORA-00918)", "CROSS JOIN = 모든 조합 (14 × 4 = 56)"] },
