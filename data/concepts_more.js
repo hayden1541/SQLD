@@ -631,7 +631,8 @@ s14: [
   { p: "ON으로 조인하면 공통 컬럼이 양쪽에 따로 남습니다. 그래서 `SELECT DEPTNO`처럼 어느 쪽인지 안 밝히면 ORA-00918(column ambiguously defined) 오류가 납니다. `E.DEPTNO`나 `D.DEPTNO`로 써야 합니다." },
   { t: { cols: ["방식", "공통 컬럼 별칭", "결과에 공통 컬럼"], rows: [["NATURAL", "붙이면 오류", "한 번"], ["USING", "붙이면 오류", "한 번"], ["ON", "반드시 붙여야 함", "두 번 (E.DEPTNO, D.DEPTNO)"]] } },
   { h: "CROSS JOIN" },
-  { p: "조건 없이 모든 조합을 만듭니다. EMP 14행 × DEPT 4행 = 56행. 조인 조건을 빠뜨린 경우와 결과가 같습니다." }
+  { p: "조건 없이 모든 조합을 만듭니다. EMP 14행 × DEPT 4행 = 56행. 조인 조건을 빠뜨린 경우와 결과가 같습니다." },
+  { p: "Oracle식으로는 `SELECT * FROM EMP, DEPT;`처럼 FROM에 쉼표로 나열하고 WHERE에 조인 조건을 안 쓴 것과 같습니다. 그래서 Oracle식 문제에서 조인 조건 하나를 빠뜨리면 그 부분이 CROSS JOIN(카티션 곱)이 됩니다." }
 ],
 
 s15: [
@@ -652,6 +653,13 @@ s15: [
 s16: [
   { h: "OUTER JOIN 세 가지" },
   { t: { cols: ["종류", "남기는 쪽"], rows: [["LEFT OUTER", "왼쪽 테이블 전부. 짝 없으면 오른쪽 컬럼이 NULL"], ["RIGHT OUTER", "오른쪽 테이블 전부"], ["FULL OUTER", "양쪽 전부 (LEFT ∪ RIGHT)"]] } },
+  { h: "Oracle식으로 쓰면" },
+  { t: { cols: ["ANSI 표준", "Oracle식 (쉼표 + WHERE + (+))"], rows: [
+    ["`FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO`", "`FROM DEPT D, EMP E WHERE D.DEPTNO = E.DEPTNO(+)`"],
+    ["`FROM DEPT D RIGHT JOIN EMP E ON D.DEPTNO = E.DEPTNO`", "`FROM DEPT D, EMP E WHERE D.DEPTNO(+) = E.DEPTNO`"],
+    ["`FULL OUTER JOIN`", "없음 (양쪽 (+) 불가 → LEFT, RIGHT 결과를 UNION)"],
+    ["`ON … AND E.JOB = 'CLERK'` (오른쪽 조건을 ON에)", "`AND E.JOB(+) = 'CLERK'` (오른쪽 조건에도 (+))"]] } },
+  { p: "(+)는 **짝이 없을 때 NULL로 채워질 쪽**에 붙입니다. LEFT JOIN이면 오른쪽 테이블 컬럼에 붙는다고 기억하면 됩니다. (+)가 없는 쪽이 전부 남는 기준 테이블입니다." },
   { code: ["SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO) 인원, COUNT(*) 행수", "FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO", "GROUP BY D.DEPTNO, D.DNAME ORDER BY 1;"],
     out: { cols: ["DEPTNO", "DNAME", "인원", "행수"], rows: [["10", "ACCOUNTING", "3", "3"], ["20", "RESEARCH", "5", "5"], ["30", "SALES", "6", "6"], ["40", "OPERATIONS", "0", "1"]] },
     chk: "SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO), COUNT(*) FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO GROUP BY D.DEPTNO, D.DNAME ORDER BY 1" },
@@ -1300,21 +1308,17 @@ s13: [
   { p: "= 대신 범위 조건으로 짝을 찾는 조인입니다. 등급 구간이 겹치지 않게 짜여 있어서 사원마다 정확히 한 등급에 붙습니다." },
   { h: "INNER 조인에서 ON과 WHERE" },
   { p: "INNER JOIN에서는 조건을 ON에 두든 WHERE에 두든 결과가 같습니다. 차이가 생기는 건 OUTER JOIN일 때뿐입니다." },
-  { h: "Oracle식 조인 ↔ ANSI 표준" },
-  { p: "시험 문제는 ANSI 문법(JOIN … ON)과 Oracle식 문법(FROM에 쉼표, WHERE에 조인 조건)이 섞여 나옵니다. Oracle식은 FROM에서 일단 모든 조합을 만들고 WHERE의 `=` 조건으로 짝이 맞는 것만 남기는 모양이라, 결과는 INNER JOIN과 같습니다." },
+  { h: "Oracle식 INNER 조인 ↔ ANSI 표준" },
+  { p: "시험 문제는 ANSI 문법(JOIN … ON)과 Oracle식 문법(FROM에 쉼표, WHERE에 조인 조건)이 섞여 나옵니다. 여기서는 INNER 조인만 봅니다. Oracle식은 FROM에서 일단 모든 조합을 만들고 WHERE의 `=` 조건으로 짝이 맞는 것만 남기는 모양이라, 결과는 INNER JOIN과 같습니다." },
   { t: { cols: ["종류", "Oracle식 (쉼표 + WHERE)", "ANSI 표준"], rows: [
     ["INNER (EQUI)", "`FROM EMP E, DEPT D WHERE E.DEPTNO = D.DEPTNO`", "`FROM EMP E JOIN DEPT D ON E.DEPTNO = D.DEPTNO`"],
     ["NON EQUI", "`FROM EMP E, SALGRADE S WHERE E.SAL BETWEEN S.LOSAL AND S.HISAL`", "`FROM EMP E JOIN SALGRADE S ON E.SAL BETWEEN S.LOSAL AND S.HISAL`"],
-    ["LEFT OUTER", "`WHERE E.DEPTNO = D.DEPTNO(+)`", "`FROM EMP E LEFT JOIN DEPT D ON E.DEPTNO = D.DEPTNO`"],
-    ["RIGHT OUTER", "`WHERE E.DEPTNO(+) = D.DEPTNO`", "`FROM EMP E RIGHT JOIN DEPT D ON E.DEPTNO = D.DEPTNO`"],
-    ["FULL OUTER", "없음 (LEFT, RIGHT를 UNION으로)", "`FULL OUTER JOIN`"],
-    ["CROSS", "`FROM EMP, DEPT` (WHERE 조인 조건 없음)", "`FROM EMP CROSS JOIN DEPT`"],
     ["테이블 3개", "`FROM A, B, C WHERE A.k = B.k AND B.j = C.j`", "`FROM A JOIN B ON A.k = B.k JOIN C ON B.j = C.j`"]] } },
   { p: "Oracle식의 WHERE에는 조인 조건과 일반 조건이 섞여 있습니다. **두 테이블 컬럼을 비교하는 조건**은 ON으로, **한 테이블 컬럼과 값을 비교하는 조건**은 WHERE로 옮겨 읽으면 ANSI와 똑같이 보입니다." },
   { code: ["-- Oracle식", "SELECT E.ENAME, D.DNAME FROM EMP E, DEPT D", "WHERE E.DEPTNO = D.DEPTNO AND E.SAL > 2900;", "", "-- ANSI로 옮기면", "SELECT E.ENAME, D.DNAME FROM EMP E JOIN DEPT D ON E.DEPTNO = D.DEPTNO", "WHERE E.SAL > 2900;"],
     out: { cols: ["ENAME", "DNAME"], rows: [["JONES", "RESEARCH"], ["SCOTT", "RESEARCH"], ["KING", "ACCOUNTING"], ["FORD", "RESEARCH"]] },
     chk: "SELECT E.ENAME, D.DNAME FROM EMP E, DEPT D WHERE E.DEPTNO = D.DEPTNO AND E.SAL > 2900 ORDER BY E.EMPNO" },
-  { p: "(+)는 NULL이 채워질 쪽(짝이 없을 수 있는 쪽)에 붙입니다. 자세한 건 'Oracle (+) 조인' 개념에 있어요." },
+  { p: "OUTER 조인의 Oracle식((+) 표기)은 'OUTER JOIN'과 'Oracle (+) 조인' 개념에, 조건 없이 쉼표만 쓴 CROSS 조인은 'NATURAL · USING · CROSS' 개념에 정리했어요." },
   { h: "같은 키가 여러 번 있으면 행이 곱해진다" },
   { code: ["-- T1(C1, C2): (1, 10) (2, 20) (3, 30) (3, 5)", "-- T2(C1):     1, 3, 3, 5", "SELECT A.C1, A.C2, B.C1", "FROM T1 A, T2 B WHERE A.C1 = B.C1;"],
     out: { cols: ["A.C1", "A.C2", "B.C1"], rows: [["1", "10", "1"], ["3", "30", "3"], ["3", "30", "3"], ["3", "5", "3"], ["3", "5", "3"]] } },
