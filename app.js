@@ -788,7 +788,7 @@ function stpLabel(s) {
   return pre + (/인라인 뷰/.test(s.t) && s.k === 'from' ? '뷰 · FROM' : STP_K[s.k] || s.t.split(' ')[0]);
 }
 function stpTable(b) {
-  const head = `<tr>${b.c.map(c => `<th>${esc(c)}</th>`).join('')}</tr>`;
+  const head = `<tr>${b.c.map(c => `<th${c.length > 18 ? ' class="lng"' : ''}>${esc(c)}</th>`).join('')}</tr>`;
   if (!b.r.length) return `<div class="stp-tb"><table class="t"><thead>${head}</thead></table><div class="empty">행 없음 (0행)</div></div>`;
   const body = b.r.map((r, j) => {
     const cl = [];
@@ -798,7 +798,7 @@ function stpTable(b) {
     return `<tr${cl.length ? ` class="${cl.join(' ')}"` : ''}>${r.map(v => v === null ? '<td class="nul">NULL</td>' : `<td>${esc(v)}</td>`).join('')}</tr>`;
   }).join('');
   return `<div class="stp-tb"><table class="t"><thead>${head}</thead><tbody>${body}</tbody></table></div>` +
-    (b.n > b.r.length ? `<div class="stp-more">${b.n}행 중 앞 ${b.r.length}행만 보여요</div>` : '');
+    (b.n > b.r.length ? `<div class="stp-more">${b.n}행 중 ${b.cut ? '남는 행을 모두 넣어 ' : '앞 '}${b.r.length}행만 보여요</div>` : '');
 }
 function stepsH(q) {
   if (!window.STEP_IDS || !STEP_IDS.has(q.id)) return '';
