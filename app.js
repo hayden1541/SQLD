@@ -1703,11 +1703,11 @@ function kknote() {
   <div class="sub">문제를 풀고 핵심개념 칸의 ☆를 누르면 여기 모여요. 개념별로 정리했어요.</div>
   ${ids.length ? `<div class="seg" style="margin:12px 0 4px"><button class="${KKH ? '' : 'on'}" onclick="KKH=false;render()">전체 보기</button><button class="${KKH ? 'on' : ''}" onclick="KKH=true;render()">가리고 외우기</button></div>
   ${KKH ? '<div class="sub" style="font-size:12.5px">가려진 칸을 누르면 내용이 보여요.</div>' : ''}
-  ${order.map(c => `<h2><span class="tag lt${CMAP[c].s}">${CMAP[c].s}과목</span> ${esc(CMAP[c].name)} <span class="sub">${g[c].length}</span></h2>
+  ${order.map(c => `<h2><span class="tag lt${CMAP[c].s}">${CMAP[c].s}과목</span> ${esc(CMAP[c].name)} <span class="sub">${g[c].length}</span>${g[c].length > 1 ? ` <button class="whytog kkall" onclick="startPractice({ids:[${g[c].join(',')}],n:${g[c].length},order:'rand',title:'다시 볼 핵심개념 · ${esc(CMAP[c].name)}'})">이 개념 ${g[c].length}문제 풀기</button>` : ''}</h2>
     ${g[c].map(id => { const q = QMAP[id]; return `<div class="card kkc ${KKH ? 'hide' : ''}">
       <div class="sub kkq" onclick="peek(${id})">${esc(q.q.length > 70 ? q.q.slice(0, 70) + '…' : q.q)} <span style="opacity:.7">#${id}</span></div>
       <div class="kkb" onclick="this.classList.add('show')"><ul class="sum" data-hk="q_${id}:k">${q.kk.map(x => `<li>${qref(md(x), id)}</li>`).join('')}</ul>${q.tip ? `<div class="kktip"><b>꿀팁</b> <span data-hk="q_${id}:t">${qref(md(q.tip), id)}</span></div>` : ''}</div>
-      <div class="row kkr"><button class="chip c" onclick="peek(${id})">문제 보기</button><button class="chip" onclick="go('concept',{id:'${c}'})">개념 보기</button><button class="chip" onclick="kkTog(${id})">외웠어요 · 빼기</button></div></div>`; }).join('')}`).join('')}
+      <div class="row kkr"><button class="chip kkgo" onclick="startPractice({ids:[${id}],n:1,order:'seq',title:'다시 볼 핵심개념 · #${id}'})">이 문제 풀기</button><button class="chip" onclick="peek(${id})">문제 보기</button><button class="chip" onclick="go('concept',{id:'${c}'})">개념 보기</button><button class="chip" onclick="kkTog(${id})">외웠어요 · 빼기</button></div></div>`; }).join('')}`).join('')}
   <button class="btn" style="margin-top:16px" onclick="startPractice({ids:[${ids.join(',')}],order:'rand',n:${ids.length},title:'다시 볼 핵심개념 문제'})">이 문제들 다시 풀기 (${ids.length})</button>`
   : `<div class="card sub" style="margin-top:14px">아직 저장한 핵심개념이 없어요. 문제를 채점한 뒤 핵심개념 칸 오른쪽 위의 <b>☆ 다시보기</b>를 눌러 보세요.</div>`}`;
 }
