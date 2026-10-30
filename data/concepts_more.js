@@ -622,14 +622,14 @@ s14: [
   { li: [
     "ON, USING을 같이 쓸 수 없음",
     "공통 컬럼(DEPTNO)은 결과에 **한 번만** 나오고, 맨 앞에 옴",
-    "공통 컬럼에 테이블 별칭을 붙이면 오류: `E.DEPTNO` X → `DEPTNO`",
+    "공통 컬럼 앞에 테이블 별칭을 붙이면 오류: `E.DEPTNO` X → `DEPTNO`. 테이블 별칭(`FROM EMP E`)과 다른 컬럼의 `E.ENAME`은 괜찮음",
     "이름은 같은데 타입이 다르면 오류"] },
   { h: "USING" },
   { code: ["SELECT DEPTNO, E.ENAME, D.DNAME", "FROM EMP E JOIN DEPT D USING (DEPTNO);"] },
-  { p: "이름이 같은 컬럼 중 원하는 것만 골라 조인합니다. USING에 쓴 컬럼도 NATURAL처럼 별칭을 붙이면 안 됩니다. 괄호도 필수입니다." },
+  { p: "이름이 같은 컬럼 중 원하는 것만 골라 조인합니다. USING에 쓴 컬럼도 NATURAL처럼 앞에 테이블 별칭을 붙이면 안 됩니다(`E.DEPTNO` X). `EMP E`처럼 테이블에 별칭을 주는 것, 다른 컬럼을 `E.ENAME`으로 쓰는 것은 괜찮습니다. 괄호도 필수입니다." },
   { h: "ON 조인의 별칭 규칙" },
   { p: "ON으로 조인하면 공통 컬럼이 양쪽에 따로 남습니다. 그래서 `SELECT DEPTNO`처럼 어느 쪽인지 안 밝히면 ORA-00918(column ambiguously defined) 오류가 납니다. `E.DEPTNO`나 `D.DEPTNO`로 써야 합니다." },
-  { t: { cols: ["방식", "공통 컬럼 별칭", "결과에 공통 컬럼"], rows: [["NATURAL", "붙이면 오류", "한 번"], ["USING", "붙이면 오류", "한 번"], ["ON", "반드시 붙여야 함", "두 번 (E.DEPTNO, D.DEPTNO)"]] } },
+  { t: { cols: ["방식", "공통 컬럼 앞 테이블 별칭", "결과에 공통 컬럼"], rows: [["NATURAL", "붙이면 오류", "한 번"], ["USING", "붙이면 오류", "한 번"], ["ON", "반드시 붙여야 함", "두 번 (E.DEPTNO, D.DEPTNO)"]] } },
   { h: "CROSS JOIN" },
   { p: "조건 없이 모든 조합을 만듭니다. EMP 14행 × DEPT 4행 = 56행. 조인 조건을 빠뜨린 경우와 결과가 같습니다." },
   { p: "Oracle식으로는 `SELECT * FROM EMP, DEPT;`처럼 FROM에 쉼표로 나열하고 WHERE에 조인 조건을 안 쓴 것과 같습니다. 그래서 Oracle식 문제에서 조인 조건 하나를 빠뜨리면 그 부분이 CROSS JOIN(카티션 곱)이 됩니다." }
