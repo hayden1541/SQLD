@@ -763,10 +763,10 @@ function quiz() {
     return `<button class="opt ${cl}${sh && k !== q.a && (k === QS.pick || !S.set.whyFold) ? ' open' : ''}${sh && q.w && k !== q.a ? ' hasw' : ''}" onclick="optTap(this, ${k})"><span class="n">${k + 1}</span><span class="ot">${ot(t)}${sh ? whyH(q, k) : ''}</span></button>`; }).join('')}
   ${sh && q.w ? whyTog() : ''}
   ${sh ? `<div class="exp ${ok ? 'ok' : 'no'}"><b>${ok ? '정답' : '오답 · 정답 ' + MK[q.a]}</b><br><span data-hk="q_${q.id}:e">${md(q.e)}</span></div>
+    ${stepsH(q)}
     ${QS.rv && QS.rv[q.id] ? `<div class="rvnote">${esc(QS.rv[q.id])}</div>` : ''}
     ${QS.mode !== 'mockview' ? fbRow(q, ok) : ''}
     ${plusH(q)}
-    ${stepsH(q)}
     <div class="row" style="flex-wrap:wrap"><button class="chip c" onclick="showConcept('${c.id}')">개념 보기: ${esc(c.name)}</button>
     ${labable(q) ? `<button class="chip c" onclick="openLab(labSqlOf(QMAP[${q.id}]),'quiz')">SQL 실행해 보기</button>` : ''}</div>
     <div class="navrow stick"><button class="btn line" onclick="prevQ()" ${QS.i ? '' : 'disabled'}>‹ 이전</button><button class="btn" onclick="nextQ()">${QS.i + 1 < QS.ids.length ? '다음 문제 ›' : '결과 보기'}</button></div>`
