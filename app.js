@@ -601,6 +601,42 @@ function home() {
   </div></div>`;
 }
 
+
+// ───────── 푼 범위 랜덤 복습 ─────────
+const RV = { us: null, src: 'done', n: 50 };
+function rvUnits() { const out = []; [1, 2].forEach(s => [...new Set(CONCEPTS.filter(c => c.s === s).map(c => c.unit))].forEach(u => out.push({ k: s + '|' + u, s, u, cs: CONCEPTS.filter(c => c.s === s && c.unit === u).map(c => c.id) }))); return out; }
+function rvPool() {
+  const sel = new Set(RV.us || []), cs = new Set(rvUnits().filter(x => sel.has(x.k)).flatMap(x => x.cs));
+  return BANK.filter(q => cs.has(q.c) && (RV.src === 'all' || S.att[q.id]));
+}
+function rvInit() {
+  if (RV.us) return;
+  let sv = null; try { sv = JSON.parse(localStorage.getItem('sqld_rv') || 'null'); } catch (e) {}
+  const all = rvUnits().map(x => x.k);
+  RV.us = sv && Array.isArray(sv.us) ? sv.us.filter(k => all.includes(k)) : rvUnits().filter(x => BANK.some(q => x.cs.includes(q.c) && S.att[q.id])).map(x => x.k);
+  if (sv && sv.src) RV.src = sv.src; if (sv && sv.n) RV.n = sv.n;
+}
+function rvSave() { try { localStorage.setItem('sqld_rv', JSON.stringify(RV)); } catch (e) {} }
+function rvOpen() {
+  rvInit();
+  const U = rvUnits(), sel = new Set(RV.us), pool = rvPool();
+  const cnt = x => { const l = BANK.filter(q => x.cs.includes(q.c)); return `${l.filter(q => S.att[q.id]).length}/${l.length}`; };
+  const col = s => `<div class="rv-s"><div class="top"><b>${s}과목</b><span><button class="sub" onclick="rvAll(${s},1)">모두</button> · <button class="sub" onclick="rvAll(${s},0)">해제</button></span></div>
+    <div class="rv-us">${U.filter(x => x.s === s).map(x => `<button class="chip ${sel.has(x.k) ? 'on' : ''}" onclick="rvTog('${x.k}')">${esc(x.u)} <span class="o">${cnt(x)}</span></button>`).join('')}</div></div>`;
+  sheet(`<div class="top"><b style="font-size:18px">푼 범위 랜덤 복습</b><button class="sub" onclick="rvDone()">지금까지 푼 단원만</button></div>
+  <div class="sub" style="margin:4px 0 10px">고른 단원에서 무작위로 섞어 내요. 단원 옆 숫자는 푼 문제/전체예요.</div>
+  ${col(1)}${col(2)}
+  <b>출제 범위</b><div class="seg">${[['done', '푼 문제에서만'], ['all', '단원 전체 (안 푼 문제 포함)']].map(([v, l]) => `<button class="${RV.src === v ? 'on' : ''}" onclick="RV.src='${v}';rvSave();rvOpen()">${l}</button>`).join('')}</div>
+  <b>문항 수</b><div class="seg">${[20, 30, 50].map(n => `<button class="${RV.n === n ? 'on' : ''}" onclick="RV.n=${n};rvSave();rvOpen()">${n}</button>`).join('')}</div>
+  <div class="sub" style="margin:8px 0">고른 범위 문제 ${pool.length}개${pool.length && pool.length < RV.n ? ` · ${pool.length}문항만 나와요` : ''}</div>
+  <button class="btn" onclick="rvStart()" ${pool.length ? '' : 'disabled'}>${Math.min(RV.n, pool.length)}문항 시작</button>`);
+}
+function rvTog(k) { const i = RV.us.indexOf(k); if (i >= 0) RV.us.splice(i, 1); else RV.us.push(k); rvSave(); rvOpen(); }
+function rvAll(s, on) { const ks = rvUnits().filter(x => x.s === s).map(x => x.k); RV.us = RV.us.filter(k => !ks.includes(k)); if (on) RV.us.push(...ks); rvSave(); rvOpen(); }
+function rvDone() { RV.us = rvUnits().filter(x => BANK.some(q => x.cs.includes(q.c) && S.att[q.id])).map(x => x.k); rvSave(); rvOpen(); }
+function rvQuick() { const ids = BANK.filter(q => S.att[q.id]).map(q => q.id); if (!ids.length) return; startPractice({ ids: shuffle(ids), n: 50, order: 'rand', title: '푼 범위 랜덤 복습' }); }
+function rvStart() { const pool = rvPool(); if (!pool.length) return; closeSheet(); startPractice({ ids: shuffle(pool.map(q => q.id)), n: RV.n, order: 'rand', title: '푼 범위 랜덤 복습' }); }
+
 // ───────── 문제 탭: 묶음으로 풀기 + 직접 고르기 ─────────
 function practice() {
   const un = BANK.filter(q => !S.att[q.id]), ug = k => un.filter(q => GRP(q) === k).length;
@@ -613,6 +649,7 @@ function practice() {
   const mix = (g, l) => `<button class="chip mx" onclick="startPractice({g:'${g}',n:20,order:'new',title:'${l}'})">섞어서 20문항</button>`;
   return `<h1>문제</h1><div class="sub">전체 ${BANK.length}문항 · 안 푼 문제 ${un.length}개 · 채점 기준 Oracle 19c 이하(시험 기준)</div>
   <div class="pks">
+  ${(() => { const d = BANK.filter(q => S.att[q.id]).length; return d ? blk('푼 범위 랜덤 복습', d + '문제 풀었음', '지금까지 나간 단원을 골라 무작위로 다시 풀어요', `<button class="chip mx" onclick="rvQuick()">나간 단원에서 50문항</button><button class="chip" onclick="rvOpen()">단원 고르기</button>`) : ''; })()}
   ${blk('안 푼 문제', un.length + '개', '', un.length ? `<button class="chip mx" onclick="startPractice({un:1,n:20,order:'rand',title:'안 푼 문제'})">섞어서 20문항</button>` + [['k', '핵심기출'], ['b', '기본'], ['g', '기출변형'], ['x', '실전형'], ['y', '노랭이']].map(([k, l]) => ch(`${l} <span class="o">${ug(k)}</span>`, `startPractice({un:1,g:'${k}',n:20,order:'rand',title:'안 푼 ${l}'})`, 0, !ug(k))).join('') : '<span class="sub">모든 문제를 한 번씩 풀었어요.</span>')}
   ${K.length ? blk('핵심기출', `${sv(K)} / ${K.length}`, 'SQL 자격검정 실전문제 원문 · 정답은 답지 기준, 해설과 보기별 오답 이유는 새로 정리', mix('k', '핵심기출') + kch(1) + kch(2)) : ''}
   ${blk('기출변형', `${sv(of('g'))} / ${of('g').length}`, '52~62회 복원 기출의 출제 포인트는 그대로 두고 테이블·숫자·조건을 바꾼 문제. 회차를 누르면 원래 번호 순서로 풀어요.', mix('g', '기출변형') + ROUNDS.map(rch).join(''))}
