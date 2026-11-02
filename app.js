@@ -1,3 +1,11 @@
+// ───────── 스크롤은 body 안에서 (iOS 탭바 흔들림 방지) ─────────
+(function () {
+  const B = document.body;
+  window.scrollTo = function (x, y) { if (typeof x === 'object' && x) B.scrollTo(x); else B.scrollTo(x || 0, y || 0); };
+  window.scrollBy = function (x, y) { if (typeof x === 'object' && x) B.scrollBy(x); else B.scrollBy(x || 0, y || 0); };
+  try { Object.defineProperty(window, 'scrollY', { configurable: true, get: () => B.scrollTop }); Object.defineProperty(window, 'pageYOffset', { configurable: true, get: () => B.scrollTop }); Object.defineProperty(window, 'scrollX', { configurable: true, get: () => B.scrollLeft }); } catch (e) {}
+  B.addEventListener('scroll', () => window.dispatchEvent(new Event('scroll')), { passive: true });
+})();
 'use strict';
 var THEMES = [['auto', '자동'], ['light', '화이트'], ['dark', '다크'], ['black', '블랙'], ['paper', '종이']];
 var DESIGNS = [['', '기본', '노선도 디자인 그대로'], ['apple', 'Apple', '아이폰 설정 화면처럼 연회색 바탕에 흰 카드, 파란 알약 버튼'], ['linear', 'Linear', '군더더기 없는 화면에 보라빛 파랑 하나, 덜 둥근 모서리'], ['notion', 'Notion', '살짝 누런 종이 바탕, 주황 메인 버튼에 파랑 강조'], ['wise', 'Wise', '세이지 그린 바탕에 연두 버튼, 크게 둥근 모서리']];
