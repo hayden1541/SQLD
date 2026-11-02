@@ -661,7 +661,7 @@ s16: [
     ["`ON … AND E.JOB = 'CLERK'` (오른쪽 조건을 ON에)", "`AND E.JOB(+) = 'CLERK'` (오른쪽 조건에도 (+))"]] } },
   { p: "(+)는 **짝이 없을 때 NULL로 채워질 쪽**에 붙입니다. LEFT JOIN이면 오른쪽 테이블 컬럼에 붙는다고 기억하면 됩니다. (+)가 없는 쪽이 전부 남는 기준 테이블입니다." },
   { li: ["(+) 없는 쪽 = 주인공, 다 남음 / (+) 붙은 쪽 = 짝 없으면 NULL로 채워짐",
-         "LEFT·RIGHT는 (+) 위치가 아니라 **주인공이 FROM에서 앞이냐 뒤냐**로 정함. `E.DEPTNO(+) = D.DEPTNO`도 D가 앞이면 LEFT",
+         "LEFT·RIGHT는 (+) 위치가 아니라 **주인공이 FROM에서 앞이냐 뒤냐**로 정함. `FROM DEPT D, EMP E WHERE E.DEPTNO(+) = D.DEPTNO`도 주인공 D가 앞이라 `DEPT D LEFT JOIN EMP E` (FROM이 `EMP E, DEPT D`였다면 `EMP E RIGHT JOIN DEPT D`, 결과는 같음)",
          "자세한 읽는 법과 예시는 **Oracle (+) 조인** 개념에"] },
   { code: ["SELECT D.DEPTNO, D.DNAME, COUNT(E.EMPNO) 인원, COUNT(*) 행수", "FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO", "GROUP BY D.DEPTNO, D.DNAME ORDER BY 1;"],
     out: { cols: ["DEPTNO", "DNAME", "인원", "행수"], rows: [["10", "ACCOUNTING", "3", "3"], ["20", "RESEARCH", "5", "5"], ["30", "SALES", "6", "6"], ["40", "OPERATIONS", "0", "1"]] },
