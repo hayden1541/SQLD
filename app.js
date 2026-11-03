@@ -1001,7 +1001,7 @@ window.addEventListener('resize', inkBarFloat);
 function inkClear() { const w = $('#inkw'); if (!w) return; INK.s[w.dataset.q] = []; inkDraw(); }
 function inkKey() { const w = $('#inkw'); return w ? w.dataset.q : null; }
 // 필기 기준 블록: 작은 블록부터 (보기·지문·표·코드·해설 …), 없으면 좌우 영역
-const INK_AN = [['o', '.opt'], ['q', '.q'], ['t', '.qt'], ['t2', '.tfold-open'], ['c', 'pre.code'], ['b', '.qbox'], ['f', '.figs'], ['i', '.kimg'], ['n', '.qnote'], ['e', '.exp'], ['v', '.rvnote'], ['fb', '.fb'], ['k', '.kbox'], ['p', '.tipbox'], ['w', '.why-hint'], ['L', '.qa-l'], ['R', '.qa-r'], ['C', '.cink']];
+const INK_AN = [['x', '.qt th, .qt td, .otb th, .otb td, .ocode, .more .otb th, .more .otb td'], ['o', '.opt'], ['q', '.q'], ['t', '.qt'], ['t2', '.tfold-open'], ['c', 'pre.code'], ['b', '.qbox'], ['f', '.figs'], ['i', '.kimg'], ['n', '.qnote'], ['e', '.exp'], ['v', '.rvnote'], ['fb', '.fb'], ['k', '.kbox'], ['p', '.tipbox'], ['w', '.why-hint'], ['L', '.qa-l'], ['R', '.qa-r'], ['C', '.cink']];
 function inkAnchors(w, cv) {
   const cr = cv.getBoundingClientRect(), out = [];
   INK_AN.forEach(([k, sel]) => w.querySelectorAll(sel).forEach((el, i) => { const r = el.getBoundingClientRect(); if (r.width && r.height) out.push({ id: k + i, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height }); }));
@@ -1957,6 +1957,8 @@ function erdFit() {
     f.classList.toggle('nar', sw < 0.85 && sn > sw + 0.02);
   });
 }
+let inkRT = 0; const inkRe = () => { clearTimeout(inkRT); inkRT = setTimeout(() => { if ($('#inkw') && typeof inkDraw === 'function') inkDraw(); }, 350); };
+window.addEventListener('orientationchange', inkRe); window.addEventListener('resize', inkRe);
 let erdRT = 0; window.addEventListener('resize', () => { clearTimeout(erdRT); erdRT = setTimeout(() => { const had = document.querySelector('figure.erd'); erdFit(); if (had && typeof inkDraw === 'function' && $('#inkw')) inkDraw(); }, 120); });
 
 // 트리 (계층형 질의): [이름, [자식...]] 왼쪽 → 오른쪽, 맨 위에 LEVEL
