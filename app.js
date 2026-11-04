@@ -595,7 +595,7 @@ function home() {
   ${p.ids.length ? `<div class="route today reccard">
     ${st('wr', `오답 복습${p.wrAll > p.wr.length ? ` <span class="sub">밀린 ${p.wrAll}개 중</span>` : ''}`, p.wr.length)}${st('rev', '잊어 가는 문제', p.rev.length)}${st('fresh', '약한 개념 새 문제', p.fresh.length)}
     <div class="st end"><span><b>도착</b> <span class="sub">${p.ids.length}문제</span></span><span class="sub">약 ${mins}분</span></div></div>
-  ${(() => { const r = resumeInfo('practice'); return r && /^오늘의 문제/.test(r.r.title || '') && r.r.d === today() ? `<button class="btn go" onclick="resumeQS('practice')">오늘 문제 이어서 풀기 · ${r.left}문제 남음</button><button class="whytog" style="display:block;margin:6px auto 0" onclick="startPlan('all')">새로 ${p.ids.length}개 뽑기</button>` : `<button class="btn go" onclick="startPlan('all')">오늘 문제 ${p.ids.length}개 풀기</button>`; })()}`
+  ${(() => { const r = resumeInfo('today'); return r && r.r.d === today() ? `<button class="btn go" onclick="resumeQS('today')">오늘 문제 이어서 풀기 · ${r.left}문제 남음</button><button class="whytog" style="display:block;margin:6px auto 0" onclick="startPlan('all')">새로 ${p.ids.length}개 뽑기</button>` : `<button class="btn go" onclick="startPlan('all')">오늘 문제 ${p.ids.length}개 풀기</button>`; })()}`
   : `<div class="card sub">지금은 풀 문제가 없어요. 문제 탭에서 골라 풀어 보세요.</div>`}
   <div class="tdline"><span class="sub">오늘 ${td.n}문제${td.n >= goal ? ' · 목표 달성' : ` / 목표 ${goal}`}${sk ? ` · ${sk}일 연속` : ''}</span><button class="whytog" onclick="recHelp()">어떻게 고르나요?</button></div>
   ${rp || rw ? `<div class="list resume">${rp ? `<div class="it" onclick="resumeQS('practice')"><span>풀던 문제 이어서 <span class="sub">${esc(rp.r.title)}</span></span><span class="sub">${rp.left}문제 남음 ›</span></div>` : ''}${rw ? `<div class="it" onclick="resumeQS('wrong')"><span>풀던 오답 이어서 <span class="sub">${esc(rw.r.title)}</span></span><span class="sub">${rw.left}문제 남음 ›</span></div>` : ''}</div>` : ''}
@@ -898,14 +898,15 @@ function quitQuiz() {
 }
 // 풀던 세트 저장 · 이어서 풀기 (오답 / 일반 따로)
 function snapQS() {
-  if (!QS) return; const k = QS.mode === 'wrong' ? 'wrong' : 'practice';
+  if (!QS) return; const k = QS.mode === 'wrong' ? 'wrong' : /^오늘의 문제/.test(QS.title || '') ? 'today' : 'practice';
   S.resume = S.resume || {};
   let i = QS.ids.findIndex(id => !(id in QS.res));
   if (i < 0) delete S.resume[k];
   else S.resume[k] = { ids: QS.ids, i, res: QS.res, picks: QS.picks || {}, title: QS.title, mode: QS.mode, d: today() };
   save();
 }
-function resumeInfo(k) { const r = S.resume && S.resume[k]; if (!r) return null; const left = r.ids.length - r.i; return left > 0 ? { r, left } : null; }
+function resumeInfo(k) { if (S.resume && S.resume.practice && /^오늘의 문제/.test(S.resume.practice.title || '')) { S.resume.today = S.resume.today && S.resume.today.d === today() ? S.resume.today : S.resume.practice; delete S.resume.practice; }
+  const r = S.resume && S.resume[k]; if (!r) return null; const left = r.ids.length - r.i; return left > 0 ? { r, left } : null; }
 function resumeQS(k) {
   const x = resumeInfo(k); if (!x) return;
   QS = { ids: x.r.ids.filter(id => QMAP[id]), i: x.r.i, mode: x.r.mode, res: x.r.res || {}, picks: x.r.picks || {}, pick: null, shown: false, title: x.r.title };
