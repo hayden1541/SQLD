@@ -330,16 +330,16 @@ function memInfo() { // 푼 문제 기억률: 오늘 / 시험날
   const avg = k => L.length ? L.reduce((s, x) => s + x[k], 0) / L.length : 0;
   return { L, now: avg('r'), exam: avg('rx'), dx };
 }
-function recIds(n) {
+function recIds(n, f) {
   n = n || S.set.goal || 30;
   const m = memInfo();
   // 잊을 위험 점수: 지금 기억률이 낮을수록, 시험날 기억률이 낮을수록 높음
-  const due = m.L.filter(x => x.t > 0 && (x.r < RD || x.rx < 0.8)) // 오늘 이미 본 문제는 내일부터.map(x => ({ id: x.id, p: (1 - x.r) + 0.5 * (1 - x.rx) + (S.conf[x.id] ? 0.1 : 0) }));
+  const due = m.L.filter(x => x.t > 0 && (x.r < RD || x.rx < 0.8) && (!f || f(x.id))) // 오늘 이미 본 문제는 내일부터.map(x => ({ id: x.id, p: (1 - x.r) + 0.5 * (1 - x.rx) + (S.conf[x.id] ? 0.1 : 0) }));
   due.sort((x, y) => y.p - x.p);
   const ids = due.slice(0, n).map(x => x.id);
   if (ids.length < n) { // 모자라면 약한 개념부터 안 푼 문제로 채움
     const sc = c => { const s = conceptStat(c); return s.n ? (s.c + 1) / (s.n + 2) : 0.55; };
-    const un = shuffle(BANK.filter(q => !S.att[q.id])).sort((x, y) => sc(x.c) - sc(y.c));
+    const un = shuffle(BANK.filter(q => !S.att[q.id] && (!f || f(q.id)))).sort((x, y) => sc(x.c) - sc(y.c));
     un.slice(0, n - ids.length).forEach(q => ids.push(q.id));
   }
   return { ids, review: Math.min(due.length, n), fresh: ids.length - Math.min(due.length, n), dueAll: due.length };
@@ -559,7 +559,8 @@ function examLabel() { const [, m, d] = S.set.exam.split('-'); return `${+m}월 
 // 오늘 풀 문제: 날짜가 된 오답 복습 → 잊어 가는 문제(망각곡선) → 약한 개념의 안 푼 문제, 하루 목표 수만큼
 function todayPlan() {
   // 오답 복습이 밀려 있어도 하루 목표의 절반까지만 넣고, 나머지 자리가 비면 오답으로 다시 채운다
-  const goal = S.set.goal || 30, all = dueIds().sort((x, y) => rvDue(S.att[x]).localeCompare(rvDue(S.att[y]))), has = new Set(all), r = recIds(goal);
+  const ts = +S.set.tsub || 0, inSub = id => !ts || (QMAP[id] && CMAP[QMAP[id].c] && CMAP[QMAP[id].c].s === ts);
+  const goal = S.set.goal || 30, all = dueIds().filter(inSub).sort((x, y) => rvDue(S.att[x]).localeCompare(rvDue(S.att[y]))), has = new Set(all), r = recIds(goal, ts ? inSub : null);
   const rev = [], fresh = [];
   r.ids.forEach(id => { if (!has.has(id)) (S.att[id] ? rev : fresh).push(id); });
   let nw = Math.min(all.length, Math.ceil(goal / 2));
@@ -573,7 +574,12 @@ function startPlan(k) {
   if (k === 'wr') { if (!p.wr.length) return toast('오늘 복습할 문제가 없어요'); INK.s = inkKeepC(); QS = { ids: shuffle(p.wr), i: 0, mode: 'wrong', res: {}, pick: null, shown: false, title: '오늘 복습' }; return go('quiz'); }
   const ids = k === 'rev' ? shuffle(p.rev) : k === 'fresh' ? p.fresh.slice() : [...shuffle(p.wr), ...shuffle([...p.rev, ...p.fresh])];
   if (!ids.length) return toast('지금 풀 문제가 없어요');
-  INK.s = inkKeepC(); QS = { ids, i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: { rev: '잊어 가는 문제', fresh: '약한 개념 새 문제' }[k] || '오늘의 문제' }; go('quiz');
+  INK.s = inkKeepC(); QS = { ids, i: 0, mode: 'practice', res: {}, pick: null, shown: false, title: ({ rev: '잊어 가는 문제', fresh: '약한 개념 새 문제' }[k] || '오늘의 문제') + (+S.set.tsub ? ` · ${S.set.tsub}과목` : '') }; go('quiz');
+}
+function tsubRow() {
+  const ts = +S.set.tsub || 0, g = S.set.goal || 30, ns = [...new Set([30, 50, 100, 150, g])].sort((x, y) => x - y);
+  return `<div class="tsub"><div class="seg">${[[0, '전체'], [1, '1과목만'], [2, '2과목만']].map(([v, l]) => `<button class="${ts === v ? 'on' : ''}" onclick="S.set.tsub=${v};save();render()">${l}</button>`).join('')}</div>
+  <div class="seg">${ns.map(n => `<button class="${g === n ? 'on' : ''}" onclick="S.set.goal=${n};save();render()">${n}문제</button>`).join('')}</div></div>`;
 }
 function home() {
   const td = S.days[today()] || { n: 0, c: 0 }, dd = dday(), p = todayPlan(), goal = S.set.goal, sk = streakDays();
@@ -585,6 +591,7 @@ function home() {
   <div class="dday"><b>${dd > 0 ? 'D-' + dd : dd === 0 ? 'D-DAY' : '시험 끝'}</b><span class="sub">${examLabel()}</span></div>
   <div class="hgrid"><div class="hl">
   <h2 class="h0">오늘 풀 문제</h2>
+  ${tsubRow()}
   ${p.ids.length ? `<div class="route today reccard">
     ${st('wr', `오답 복습${p.wrAll > p.wr.length ? ` <span class="sub">밀린 ${p.wrAll}개 중</span>` : ''}`, p.wr.length)}${st('rev', '잊어 가는 문제', p.rev.length)}${st('fresh', '약한 개념 새 문제', p.fresh.length)}
     <div class="st end"><span><b>도착</b> <span class="sub">${p.ids.length}문제</span></span><span class="sub">약 ${mins}분</span></div></div>
