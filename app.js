@@ -595,7 +595,7 @@ function home() {
   ${p.ids.length ? `<div class="route today reccard">
     ${st('wr', `오답 복습${p.wrAll > p.wr.length ? ` <span class="sub">밀린 ${p.wrAll}개 중</span>` : ''}`, p.wr.length)}${st('rev', '잊어 가는 문제', p.rev.length)}${st('fresh', '약한 개념 새 문제', p.fresh.length)}
     <div class="st end"><span><b>도착</b> <span class="sub">${p.ids.length}문제</span></span><span class="sub">약 ${mins}분</span></div></div>
-  <button class="btn go" onclick="startPlan('all')">오늘 문제 ${p.ids.length}개 풀기</button>`
+  ${(() => { const r = resumeInfo('practice'); return r && /^오늘의 문제/.test(r.r.title || '') && r.r.d === today() ? `<button class="btn go" onclick="resumeQS('practice')">오늘 문제 이어서 풀기 · ${r.left}문제 남음</button><button class="whytog" style="display:block;margin:6px auto 0" onclick="startPlan('all')">새로 ${p.ids.length}개 뽑기</button>` : `<button class="btn go" onclick="startPlan('all')">오늘 문제 ${p.ids.length}개 풀기</button>`; })()}`
   : `<div class="card sub">지금은 풀 문제가 없어요. 문제 탭에서 골라 풀어 보세요.</div>`}
   <div class="tdline"><span class="sub">오늘 ${td.n}문제${td.n >= goal ? ' · 목표 달성' : ` / 목표 ${goal}`}${sk ? ` · ${sk}일 연속` : ''}</span><button class="whytog" onclick="recHelp()">어떻게 고르나요?</button></div>
   ${rp || rw ? `<div class="list resume">${rp ? `<div class="it" onclick="resumeQS('practice')"><span>풀던 문제 이어서 <span class="sub">${esc(rp.r.title)}</span></span><span class="sub">${rp.left}문제 남음 ›</span></div>` : ''}${rw ? `<div class="it" onclick="resumeQS('wrong')"><span>풀던 오답 이어서 <span class="sub">${esc(rw.r.title)}</span></span><span class="sub">${rw.left}문제 남음 ›</span></div>` : ''}</div>` : ''}
@@ -902,7 +902,7 @@ function snapQS() {
   S.resume = S.resume || {};
   let i = QS.ids.findIndex(id => !(id in QS.res));
   if (i < 0) delete S.resume[k];
-  else S.resume[k] = { ids: QS.ids, i, res: QS.res, picks: QS.picks || {}, title: QS.title, mode: QS.mode };
+  else S.resume[k] = { ids: QS.ids, i, res: QS.res, picks: QS.picks || {}, title: QS.title, mode: QS.mode, d: today() };
   save();
 }
 function resumeInfo(k) { const r = S.resume && S.resume[k]; if (!r) return null; const left = r.ids.length - r.i; return left > 0 ? { r, left } : null; }
@@ -977,7 +977,8 @@ function inkBar() {
   return `<div class="inkbar-w"><div class="inkbar">${INK_COLS.map(c => `<button class="dot ${!INK.er && !INK.las && INK.col === c ? 'on' : ''}" style="--c:${c}" onclick="INK.col='${c}';INK.er=false;INK.las=false;inkBarRefresh()"></button>`).join('')}
     <button class="inkbtn las ${INK.las ? 'on' : ''}" onclick="INK.las=!INK.las;INK.er=false;inkBarRefresh()" title="떼면 사라지는 펜">레이저</button>
     <button class="inkbtn ${INK.er ? 'on' : ''}" onclick="INK.er=!INK.er;INK.las=false;inkBarRefresh()">지우개</button>
-    <button class="inkbtn" onclick="inkClear()">전체 지우기</button>
+    <button class="inkbtn" onclick="inkUndo()">되돌리기</button>
+    ${INK.cl && INK.cl[inkKey()] && !(INK.s[inkKey()] || []).length ? `<button class="inkbtn on" onclick="inkRestore()">복원</button>` : `<button class="inkbtn" onclick="inkClear()">전체 지우기</button>`}
     <button class="inkbtn on" onclick="inkToggle()">완료</button></div></div>`;
 }
 function inkToggle() { INK.on = !INK.on; INK.er = false; INK.las = false; INK.L = []; render(); }
@@ -987,9 +988,11 @@ window.onPencilTap = () => {
   INK.pen = true; inkToggle(); toast(INK.on ? '필기 켜짐' : '필기 꺼짐');
 };
 function inkUndo() {
-  const l = INK.s[inkKey()]; if (!l || !l.length) return toast('지울 획이 없어요');
+  const l = INK.s[inkKey()];
+  if ((!l || !l.length) && INK.cl && INK.cl[inkKey()]) return inkRestore();
+  if (!l || !l.length) return toast('되돌릴 필기가 없어요');
   l.pop(); if (!l.length) { const w = $('#inkw'); if (w) w.classList.remove('hasink'); }
-  inkDraw(); toast('방금 그은 획을 지웠어요');
+  inkDraw(); inkBarRefresh(); toast(l.length || !(INK.cl && INK.cl[inkKey()]) ? '방금 한 것을 취소했어요' : '획을 다 취소했어요 · 한 번 더 누르면 전체 지우기 전으로');
 }
 document.addEventListener('keydown', e => { if (INK.on && $('#inkw') && (e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); inkUndo(); } });
 function inkBarRefresh() { const b = document.querySelector('.inkbar-w'); if (b) b.outerHTML = inkBar(); inkBarFloat(); }
@@ -1005,7 +1008,8 @@ function inkBarFloat() {
 }
 window.addEventListener('scroll', inkBarFloat, { passive: true });
 window.addEventListener('resize', inkBarFloat);
-function inkClear() { const w = $('#inkw'); if (!w) return; INK.s[w.dataset.q] = []; inkDraw(); }
+function inkClear() { const w = $('#inkw'); if (!w) return; const k = w.dataset.q, l = INK.s[k] || []; if (!l.length) return toast('지울 필기가 없어요'); (INK.cl = INK.cl || {})[k] = l.slice(); INK.s[k] = []; w.classList.remove('hasink'); inkDraw(); if (/^c_/.test(k)) inkSaveSoon(); inkBarRefresh(); toast('모두 지웠어요 · 복원을 누르면 되돌려요'); }
+function inkRestore() { const w = $('#inkw'); if (!w) return; const k = w.dataset.q, b = INK.cl && INK.cl[k]; if (!b) return; INK.s[k] = b.concat(INK.s[k] || []); delete INK.cl[k]; w.classList.add('hasink'); inkDraw(); if (/^c_/.test(k)) inkSaveSoon(); inkBarRefresh(); toast('필기를 되돌렸어요'); }
 function inkKey() { const w = $('#inkw'); return w ? w.dataset.q : null; }
 // 필기 기준 블록: 작은 블록부터 (보기·지문·표·코드·해설 …), 없으면 좌우 영역
 const INK_AN = [['x', '.qt th, .qt td, .otb th, .otb td, .ocode, .more .otb th, .more .otb td'], ['o', '.opt'], ['q', '.q'], ['t', '.qt'], ['t2', '.tfold-open'], ['c', 'pre.code'], ['b', '.qbox'], ['f', '.figs'], ['i', '.kimg'], ['n', '.qnote'], ['e', '.exp'], ['v', '.rvnote'], ['fb', '.fb'], ['k', '.kbox'], ['p', '.tipbox'], ['w', '.why-hint'], ['L', '.qa-l'], ['R', '.qa-r'], ['C', '.cink']];
