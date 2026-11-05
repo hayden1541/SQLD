@@ -537,7 +537,7 @@ function render() {
   const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide, kknote }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
   erdFit();
-  hlHide(); hlMount($('#app')); inkBarFloat();
+  hlHide(); hlMount($('#app')); inkBarFloat(); calcMount();
   inkMount();
 }
 
@@ -974,14 +974,61 @@ function inkFling(v) { // 손을 뗀 뒤에도 조금 더 미끄러지듯 스크
 }
 const INK_COLS = ['#e5484d', '#2f6fde', '#1f9d55'];
 function inkBar() {
-  if (!INK.on) return `<button class="inkbtn" onclick="inkToggle()">✎ 필기</button>`;
+  if (!INK.on) return view === 'quiz' ? `<span class="inkpair"><button class="inkbtn calcb ${CALC.on ? 'on' : ''}" onclick="calcTog()">계산기</button><button class="inkbtn" onclick="inkToggle()">✎ 필기</button></span>` : `<button class="inkbtn" onclick="inkToggle()">✎ 필기</button>`;
   return `<div class="inkbar-w"><div class="inkbar">${INK_COLS.map(c => `<button class="dot ${!INK.er && !INK.las && INK.col === c ? 'on' : ''}" style="--c:${c}" onclick="INK.col='${c}';INK.er=false;INK.las=false;inkBarRefresh()"></button>`).join('')}
     <button class="inkbtn las ${INK.las ? 'on' : ''}" onclick="INK.las=!INK.las;INK.er=false;inkBarRefresh()" title="떼면 사라지는 펜">레이저</button>
     <button class="inkbtn ${INK.er ? 'on' : ''}" onclick="INK.er=!INK.er;INK.las=false;inkBarRefresh()">지우개</button>
     <button class="inkbtn" onclick="inkUndo()">되돌리기</button>
     ${INK.cl && INK.cl[inkKey()] && !(INK.s[inkKey()] || []).length ? `<button class="inkbtn on" onclick="inkRestore()">복원</button>` : `<button class="inkbtn" onclick="inkClear()">전체 지우기</button>`}
-    <button class="inkbtn on" onclick="inkToggle()">완료</button></div></div>`;
+    ${view === 'quiz' ? `<button class="inkbtn calcb ${CALC.on ? 'on' : ''}" onclick="calcTog()">계산기</button>` : ''}<button class="inkbtn on" onclick="inkToggle()">완료</button></div></div>`;
 }
+
+// ───────── 떠 있는 계산기 ─────────
+const CALC = { on: false, e: '', r: '', h: [] };
+function calcEval(s) { // 사칙연산·괄호·소수만 (eval 안 씀)
+  const t = s.replace(/×/g, '*').replace(/÷/g, '/').replace(/,/g, '').match(/\d*\.?\d+|[-+*/%()]/g) || []; let i = 0;
+  const pk = () => t[i], nx = () => t[i++];
+  const prim = () => { const x = nx(); if (x === '(') { const v = add(); if (pk() === ')') nx(); return v; } if (x === '-') return -prim(); if (x === '+') return prim(); const v = parseFloat(x); if (isNaN(v)) throw 0; return v; };
+  const mul = () => { let v = prim(); while (pk() === '*' || pk() === '/' || pk() === '%') { const o = nx(), b = prim(); v = o === '*' ? v * b : o === '/' ? v / b : v % b; } return v; };
+  const add = () => { let v = mul(); while (pk() === '+' || pk() === '-') { const o = nx(), b = mul(); v = o === '+' ? v + b : v - b; } return v; };
+  const v = add(); if (i < t.length) throw 0; return v;
+}
+function calcFmt(v) { if (!isFinite(v)) return '÷0'; const r = Math.round(v * 1e6) / 1e6; return r.toLocaleString('en-US', { maximumFractionDigits: 6 }); }
+function calcTog() { CALC.on = !CALC.on; calcMount(); inkBarRefresh(); }
+function calcKey(k) {
+  if (k === 'C') { CALC.e = ''; CALC.r = ''; }
+  else if (k === '⌫') CALC.e = CALC.e.slice(0, -1);
+  else if (k === '=') { try { const v = calcEval(CALC.e); CALC.h.unshift(CALC.e + ' = ' + calcFmt(v)); CALC.h = CALC.h.slice(0, 3); CALC.e = String(Math.round(v * 1e6) / 1e6); CALC.r = ''; CALC.done = 1; } catch (e) { CALC.r = '식을 확인하세요'; } calcPaint(); return; }
+  else { if (CALC.done && /^[\d.(]$/.test(k)) CALC.e = ''; CALC.e += k; }
+  CALC.done = 0;
+  if (k !== '=' && CALC.e) { try { CALC.r = calcFmt(calcEval(CALC.e)); } catch (e) { CALC.r = ''; } }
+  calcPaint();
+}
+function calcPaint() {
+  const el = document.getElementById('calc'); if (!el) return;
+  el.querySelector('.cx').textContent = CALC.e || '0'; el.querySelector('.cr').textContent = CALC.r ? '= ' + CALC.r : ''; el.querySelector('.ch').innerHTML = CALC.h.map(x => `<div>${esc(x)}</div>`).join('');
+}
+function calcMount() {
+  let el = document.getElementById('calc');
+  if (!CALC.on || view !== 'quiz') { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'calc';
+    const K = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '⌫', '='];
+    el.innerHTML = `<div class="chd"><span>계산기</span><button onclick="calcTog()">닫기</button></div><div class="ch"></div><div class="cx">0</div><div class="cr"></div>
+      <div class="ck">${K.map(k => `<button class="${/[÷×+\-=]/.test(k) ? 'op' : ''}${k === '=' ? ' eq' : ''}" data-k="${k}">${k}</button>`).join('')}</div>`;
+    document.body.appendChild(el);
+    el.querySelector('.ck').addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); calcKey(b.dataset.k); });
+    // 끌어서 옮기기 (머리 부분)
+    const hd = el.querySelector('.chd'); let d = null;
+    hd.addEventListener('pointerdown', e => { if (e.target.tagName === 'BUTTON') return; const r = el.getBoundingClientRect(); d = { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId }; hd.setPointerCapture(e.pointerId); e.preventDefault(); });
+    hd.addEventListener('pointermove', e => { if (!d || e.pointerId !== d.id) return; const x = Math.max(4, Math.min(innerWidth - el.offsetWidth - 4, e.clientX - d.x)), y = Math.max(4, Math.min(innerHeight - el.offsetHeight - 4, e.clientY - d.y)); el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; });
+    hd.addEventListener('pointerup', () => { if (!d) return; d = null; try { localStorage.setItem('sqld_calc', JSON.stringify({ l: el.style.left, t: el.style.top })); } catch (e) {} });
+    try { const p = JSON.parse(localStorage.getItem('sqld_calc') || 'null'); if (p && p.l) { el.style.left = p.l; el.style.top = p.t; el.style.right = 'auto'; el.style.bottom = 'auto'; } } catch (e) {}
+    const r = el.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight || r.left < 0 || r.top < 0) { el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = ''; }
+  }
+  calcPaint();
+}
+document.addEventListener('keydown', e => { if (!CALC.on || !document.getElementById('calc') || /INPUT|TEXTAREA/.test((e.target || {}).tagName || '')) return; const m = { Enter: '=', Backspace: '⌫', Escape: 'C', '*': '×', '/': '÷' }; const k = m[e.key] || (/^[\d.()+\-]$/.test(e.key) ? e.key : null); if (k) { e.preventDefault(); calcKey(k); } });
 function inkToggle() { INK.on = !INK.on; INK.er = false; INK.las = false; INK.L = []; render(); }
 // 애플펜슬 몸통 두 번 탭(앱이 호출): 문제 풀이·모의고사 화면에서만 필기 켜기/끄기
 window.onPencilTap = () => {
