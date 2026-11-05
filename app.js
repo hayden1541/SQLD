@@ -980,7 +980,7 @@ function inkBar() {
     <button class="inkbtn ${INK.er ? 'on' : ''}" onclick="INK.er=!INK.er;INK.las=false;inkBarRefresh()">지우개</button>
     <button class="inkbtn" onclick="inkUndo()">되돌리기</button>
     ${INK.cl && INK.cl[inkKey()] && !(INK.s[inkKey()] || []).length ? `<button class="inkbtn on" onclick="inkRestore()">복원</button>` : `<button class="inkbtn" onclick="inkClear()">전체 지우기</button>`}
-    ${view === 'quiz' ? `<button class="inkbtn calcb ${CALC.on ? 'on' : ''}" onclick="calcTog()">계산기</button>` : ''}<button class="inkbtn on" onclick="inkToggle()">완료</button></div></div>`;
+    ${view === 'quiz' && innerWidth >= 600 ? `<button class="inkbtn calcb ${CALC.on ? 'on' : ''}" onclick="calcTog()">계산기</button>` : ''}<button class="inkbtn on" onclick="inkToggle()">완료</button></div></div>`;
 }
 
 // ───────── 떠 있는 계산기 ─────────
