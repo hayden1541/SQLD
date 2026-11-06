@@ -2087,3 +2087,32 @@ function figSVG(spec, small) {
     return erdSvg(W, H, b, cls).svg; }
   return '';
 }
+
+// ───────── 세 손가락 두 번 탭: 필기 켜기(초록 펜) / 끄기 ─────────
+(function () {
+  let g = null, last = 0;
+  const has = () => !!document.querySelector('[onclick="inkToggle()"]');
+  document.addEventListener('touchstart', e => {
+    const n = e.touches.length;
+    if (!g) g = { t: Date.now(), max: 0, moved: false, p: {} };
+    g.max = Math.max(g.max, n);
+    for (const t of e.changedTouches) g.p[t.identifier] = [t.clientX, t.clientY];
+    if (n >= 3 && INK.on) e.preventDefault();
+  }, { capture: true, passive: false });
+  document.addEventListener('touchmove', e => {
+    if (!g) return;
+    for (const t of e.changedTouches) { const p = g.p[t.identifier]; if (p && Math.hypot(t.clientX - p[0], t.clientY - p[1]) > 24) g.moved = true; }
+  }, { capture: true, passive: true });
+  const end = e => {
+    if (!g || e.touches.length) return;
+    const ok = e.type === 'touchend' && g.max === 3 && !g.moved && Date.now() - g.t < 450; g = null;
+    if (!ok) { last = 0; return; }
+    if (Date.now() - last > 500) { last = Date.now(); return; }
+    last = 0; if (!has()) return;
+    if (!INK.on) { INK.col = '#1f9d55'; inkToggle(); INK.er = false; INK.las = false; inkBarRefresh && inkBarRefresh(); }
+    else inkToggle();
+    e.preventDefault();
+  };
+  document.addEventListener('touchend', end, { capture: true, passive: false });
+  document.addEventListener('touchcancel', end, { capture: true, passive: false });
+})();
