@@ -1008,22 +1008,40 @@ function calcPaint() {
   const el = document.getElementById('calc'); if (!el) return;
   el.querySelector('.cx').textContent = CALC.e || '0'; el.querySelector('.cr').textContent = CALC.r ? '= ' + CALC.r : ''; el.querySelector('.ch').innerHTML = CALC.h.map(x => `<div>${esc(x)}</div>`).join('');
 }
+
+// 계산기 크기: --cz 배율 (0.8 ~ 2.2)
+function calcSave(el) { try { localStorage.setItem('sqld_calc', JSON.stringify({ l: el.style.left, t: el.style.top, z: CALC.z || 1 })); } catch (e) {} }
+function calcFit(el) { const r = el.getBoundingClientRect(); if (r.right > innerWidth - 4 || r.bottom > innerHeight - 4) {
+  el.style.left = Math.max(4, Math.min(r.left, innerWidth - r.width - 4)) + 'px'; el.style.top = Math.max(4, Math.min(r.top, innerHeight - r.height - 4)) + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; } }
+function calcZ(el, z, quiet) {
+  const r0 = el.getBoundingClientRect(), max = Math.max(1, Math.min(2.2, (innerWidth - 8) / 232, (innerHeight - 8) / 330));
+  z = Math.round(Math.max(0.8, Math.min(max, z)) * 100) / 100; CALC.z = z; el.style.setProperty('--cz', z);
+  if (!quiet) { el.style.left = r0.left + 'px'; el.style.top = r0.top + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; calcFit(el); }
+}
+function calcSizeInit(el) {
+  el.querySelector('.czb').addEventListener('pointerdown', e => { const b = e.target.closest('[data-z]'); if (!b) return; e.preventDefault(); e.stopPropagation(); calcZ(el, (CALC.z || 1) + 0.2 * +b.dataset.z); calcSave(el); });
+  const g = el.querySelector('.cgrip'); let s = null;
+  g.addEventListener('pointerdown', e => { const r = el.getBoundingClientRect(); s = { x: e.clientX, y: e.clientY, w: r.width, z: CALC.z || 1, id: e.pointerId }; el.style.left = r.left + 'px'; el.style.top = r.top + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; g.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation(); });
+  g.addEventListener('pointermove', e => { if (!s || e.pointerId !== s.id) return; e.preventDefault(); const d = Math.max(e.clientX - s.x, (e.clientY - s.y) * 0.7); calcZ(el, s.z * (s.w + d) / s.w, true); });
+  const up = () => { if (!s) return; s = null; calcFit(el); calcSave(el); }; g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+}
 function calcMount() {
   let el = document.getElementById('calc');
   if (!CALC.on || view !== 'quiz') { if (el) el.remove(); return; }
   if (!el) {
     el = document.createElement('div'); el.id = 'calc';
     const K = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '⌫', '='];
-    el.innerHTML = `<div class="chd"><span>계산기</span><button onclick="calcTog()">닫기</button></div><div class="ch"></div><div class="cx">0</div><div class="cr"></div>
-      <div class="ck">${K.map(k => `<button class="${/[÷×+\-=]/.test(k) ? 'op' : ''}${k === '=' ? ' eq' : ''}" data-k="${k}">${k}</button>`).join('')}</div>`;
+    el.innerHTML = `<div class="chd"><span>계산기</span><span class="czb"><button data-z="-1" aria-label="작게">−</button><button data-z="1" aria-label="크게">＋</button><button onclick="calcTog()">닫기</button></span></div><div class="ch"></div><div class="cx">0</div><div class="cr"></div>
+      <div class="cgrip" aria-label="크기 조절"></div><div class="ck">${K.map(k => `<button class="${/[÷×+\-=]/.test(k) ? 'op' : ''}${k === '=' ? ' eq' : ''}" data-k="${k}">${k}</button>`).join('')}</div>`;
     document.body.appendChild(el);
     el.querySelector('.ck').addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); calcKey(b.dataset.k); });
     // 끌어서 옮기기 (머리 부분)
     const hd = el.querySelector('.chd'); let d = null;
     hd.addEventListener('pointerdown', e => { if (e.target.tagName === 'BUTTON') return; const r = el.getBoundingClientRect(); d = { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId }; hd.setPointerCapture(e.pointerId); e.preventDefault(); });
     hd.addEventListener('pointermove', e => { if (!d || e.pointerId !== d.id) return; const x = Math.max(4, Math.min(innerWidth - el.offsetWidth - 4, e.clientX - d.x)), y = Math.max(4, Math.min(innerHeight - el.offsetHeight - 4, e.clientY - d.y)); el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; });
-    hd.addEventListener('pointerup', () => { if (!d) return; d = null; try { localStorage.setItem('sqld_calc', JSON.stringify({ l: el.style.left, t: el.style.top })); } catch (e) {} });
-    try { const p = JSON.parse(localStorage.getItem('sqld_calc') || 'null'); if (p && p.l) { el.style.left = p.l; el.style.top = p.t; el.style.right = 'auto'; el.style.bottom = 'auto'; } } catch (e) {}
+    hd.addEventListener('pointerup', () => { if (!d) return; d = null; calcSave(el); });
+    calcSizeInit(el);
+    try { const p = JSON.parse(localStorage.getItem('sqld_calc') || 'null'); if (p && p.z) calcZ(el, p.z, true); if (p && p.l) { el.style.left = p.l; el.style.top = p.t; el.style.right = 'auto'; el.style.bottom = 'auto'; } } catch (e) {}
     const r = el.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight || r.left < 0 || r.top < 0) { el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = ''; }
   }
   calcPaint();
