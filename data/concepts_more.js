@@ -895,7 +895,19 @@ s26: [
     "**RANGE**는 값 기준. SAL이 같은 3000 두 명을 한 덩어리로 보고 둘 다 끝까지 더한 10875",
     "**ROWS**는 행 기준. SCOTT까지 7875, FORD까지 10875로 한 줄씩 따로",
     "ORDER BY만 쓰고 범위를 안 쓰면 RANGE가 기본 → 동점이 있으면 같은 누적값이 나옴"] },
-  { p: "UNBOUNDED PRECEDING = 처음부터, CURRENT ROW = 현재 행까지, UNBOUNDED FOLLOWING = 끝까지입니다. 시작과 끝 순서를 거꾸로 쓰면 오류입니다." }
+  { p: "UNBOUNDED PRECEDING = 처음부터, CURRENT ROW = 현재 행까지, UNBOUNDED FOLLOWING = 끝까지입니다. 시작과 끝 순서를 거꾸로 쓰면 오류입니다." },
+  { h: "RANGE에 숫자가 붙으면 — '줄'이 아니라 '값 차이'" },
+  { p: "`ROWS 1 PRECEDING`은 **한 줄 앞**, `RANGE 1 PRECEDING`은 **ORDER BY 값이 1 작은 것까지**예요. RANGE는 늘 값을 기준으로 봅니다. 값이 촘촘하면 결과가 같아 보이지만, 값이 띄엄띄엄이면 완전히 달라져요." },
+  { code: ["-- T: ID 1, 2, 4, 7 / VAL 2, 4, 6, 8", "SELECT ID, SUM(VAL) OVER (ORDER BY ID", "         RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS S", "FROM T;"],
+    out: { cols: ["ID", "RANGE 범위 (ID 값)", "들어오는 행", "S (RANGE)", "ROWS로 했다면"], rows: [
+      ["1", "0 ~ 2", "ID 1, 2", "2+4 = **6**", "나+뒤1줄 = 6"],
+      ["2", "1 ~ 3", "ID 1, 2", "2+4 = **6**", "앞+나+뒤 = 12"],
+      ["4", "3 ~ 5", "ID 4만", "**6**", "앞+나+뒤 = 18"],
+      ["7", "6 ~ 8", "ID 7만", "**8**", "앞+나 = 14"]] } },
+  { li: [
+    "RANGE n PRECEDING ~ n FOLLOWING = **내 ORDER BY 값 − n 이상, + n 이하**인 행 전부",
+    "ID 4를 보면 확실해요: 바로 앞 줄 ID 2도, 뒤 줄 ID 7도 범위(3~5) 밖이라 **자기 자신만** 더함",
+    "동점 묶기도 같은 원리: RANGE는 값이 같으면 함께 들어오고, 숫자가 붙으면 그 값 범위 안만 들어옴"] }
 ],
 
 s27: [
