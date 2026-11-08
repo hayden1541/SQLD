@@ -157,7 +157,7 @@ window.CONCEPTS = [ // 핵심기출 보강 반영
         "ON 조인에서 양쪽에 있는 컬럼은 **별칭 필수** (ORA-00918)", "CROSS JOIN = 모든 조합 (14 × 4 = 56)", "Oracle식 `FROM EMP, DEPT` (WHERE 조인 조건 없음) = CROSS JOIN"] },
 { id: "s16", s: 2, unit: "조인", name: "OUTER JOIN (ON vs WHERE)",
   sum: ["LEFT = 왼쪽 전부 남기고 짝 없으면 오른쪽 NULL", "**오른쪽 테이블 조건은 ON에**. WHERE에 두면 NULL 줄이 탈락해 INNER처럼 됨",
-        "짝 없는 행 찾기: WHERE 오른쪽 **PK** IS NULL", "개수는 COUNT(오른쪽 PK). COUNT(*)는 NULL 줄도 1", "Oracle식: `WHERE D.DEPTNO = E.DEPTNO(+)` = `DEPT D LEFT JOIN EMP E` ((+)는 NULL 채워질 쪽)"],
+        "**ON은 기준 테이블 행을 못 지움**(짝만 안 붙고 NULL), 행을 없애는 건 WHERE. INNER는 둘 다 같음", "짝 없는 행 찾기: WHERE 오른쪽 **PK** IS NULL", "개수는 COUNT(오른쪽 PK). COUNT(*)는 NULL 줄도 1", "Oracle식: `WHERE D.DEPTNO = E.DEPTNO(+)` = `DEPT D LEFT JOIN EMP E` ((+)는 NULL 채워질 쪽)"],
   ex: ["DEPT LEFT JOIN EMP ON … AND E.JOB = 'CLERK'   → 5행", "DEPT LEFT JOIN EMP ON … WHERE E.JOB = 'CLERK'  → 4행"] },
 { id: "s17", s: 2, unit: "조인", name: "Oracle (+) 조인",
   sum: ["FROM에 쉼표, 조인 조건을 WHERE에", "`(+)`는 **NULL이 채워질 쪽**에. 반대편이 기준", "D.DEPTNO = E.DEPTNO(+) = DEPT LEFT JOIN EMP",

@@ -672,6 +672,13 @@ s16: [
     "`ON D.DEPTNO = E.DEPTNO AND E.JOB = 'CLERK'` → 조인할 때 CLERK만 붙임. 부서 4개는 모두 남고 CLERK 없는 40번은 NULL로 남음",
     "`ON D.DEPTNO = E.DEPTNO WHERE E.JOB = 'CLERK'` → 조인 다 한 뒤 거름. 40번의 NULL 줄은 JOB이 NULL이라 탈락 → INNER JOIN과 같은 결과",
     "왼쪽(기준) 테이블 조건은 WHERE에 두는 게 맞음. ON에 두면 걸러지지 않고 짝만 안 붙음"] },
+  { h: "ON vs WHERE 한 줄 정리" },
+  { t: { cols: ["", "ON에 쓴 조건", "WHERE에 쓴 조건"], rows: [
+    ["INNER JOIN", "조인 후 거르기와 같음", "조인 후 거르기"],
+    ["OUTER JOIN", "**맞는 것만 짝으로 붙임.** 짝 없는 기준 테이블 행은 안 지우고 NULL로 채워 남김", "**조인 다 한 뒤 제거.** 조건에 안 맞는 행은 사라짐 (NULL 줄도)"]] } },
+  { p: "**ON은 기준 테이블 행을 지우지 못한다.** 짝을 붙일지 말지만 정해요. 행을 실제로 없애는 건 WHERE뿐입니다. INNER JOIN은 짝 없는 행을 어차피 버리니 ON이든 WHERE든 결과가 같고, OUTER JOIN에서만 차이가 납니다." },
+  { li: ["문제 보면 **조인 종류부터** 확인: INNER면 편하게 '조인 후 거르기', LEFT·RIGHT면 ON과 WHERE를 나눠서 보기",
+         "LEFT JOIN에서 행 수가 헷갈리면: 왼쪽 테이블 행은 **ON 때문에 줄어들지 않는다** → WHERE 조건만 보고 빠지는 행을 세기"] },
   { h: "짝 없는 행만 찾기" },
   { code: ["SELECT D.DEPTNO, D.DNAME", "FROM DEPT D LEFT JOIN EMP E ON D.DEPTNO = E.DEPTNO", "WHERE E.EMPNO IS NULL;          -- 40 OPERATIONS"] },
   { p: "오른쪽의 NOT NULL 컬럼(PK)이 NULL인 행 = 짝이 없었던 행입니다. 원래 NULL이 있을 수 있는 컬럼(COMM 등)으로 검사하면 틀립니다." }
