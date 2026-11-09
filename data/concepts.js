@@ -207,7 +207,7 @@ window.CONCEPTS = [ // 핵심기출 보강 반영
   tree: ["KING", [["JONES", [["SCOTT", [["ADAMS"]]], ["FORD", [["SMITH"]]]]], ["BLAKE", [["ALLEN"], ["WARD"], ["MARTIN"], ["TURNER"], ["JAMES"]]], ["CLARK", [["MILLER"]]]]], tcap: ["EMP 조직도 (MGR → EMPNO). START WITH MGR IS NULL이면 KING이 LEVEL 1"] },
 { id: "s30", s: 2, unit: "Top-N", name: "Top-N (ROWNUM · FETCH · TOP)",
   sum: ["ROWNUM은 WHERE 단계에서 붙음 → **인라인 뷰에서 정렬 먼저**", "ROWNUM = 1, <= N만 의미. ROWNUM = 2, > 1은 0건",
-        "FETCH FIRST N ROWS ONLY / WITH TIES(동점 포함), ORDER BY 뒤", "SQL Server TOP, MySQL LIMIT"],
+        "FETCH FIRST N ROWS ONLY / WITH TIES(동점 포함), ORDER BY 뒤", "**OFFSET n ROWS** = 정렬 후 앞 n행 건너뛰기 → 그다음 FETCH NEXT m행", "SQL Server TOP, MySQL LIMIT"],
   ex: ["SELECT * FROM (SELECT ENAME, SAL FROM EMP ORDER BY SAL DESC)", "WHERE ROWNUM <= 3;"] },
 { id: "s31", s: 2, unit: "PIVOT · 정규식", name: "PIVOT · UNPIVOT",
   sum: ["PIVOT 행→열, **집계함수 필요**, PIVOT에 안 쓴 컬럼이 그룹 기준", "UNPIVOT 열→행, 집계 불필요, 기본 NULL 제외(INCLUDE NULLS)"] },

@@ -987,7 +987,18 @@ s30: [
     ["Oracle 12c+", "ORDER BY ... OFFSET n ROWS FETCH FIRST n ROWS ONLY | WITH TIES"],
     ["SQL Server", "SELECT TOP (n) [WITH TIES] ... ORDER BY"],
     ["MySQL", "LIMIT n"]] } },
-  { p: "WITH TIES는 마지막 순위와 같은 값을 가진 행을 더 붙여 주므로 ORDER BY가 반드시 필요합니다." }
+  { p: "WITH TIES는 마지막 순위와 같은 값을 가진 행을 더 붙여 주므로 ORDER BY가 반드시 필요합니다." },
+  { h: "OFFSET — 앞에서 몇 행 건너뛰기" },
+  { p: "`OFFSET n ROWS`는 정렬한 결과에서 **앞의 n행을 버리고** 그다음부터 보여 줘요. 뒤에 붙는 `FETCH NEXT m ROWS ONLY`는 '건너뛴 다음부터 m행만'이라는 뜻입니다. 게시판 2페이지(11~20번 글)를 가져올 때 쓰는 문법이에요." },
+  { code: ["-- SALES: 1000/40000, 2000/30000, 3000/35000, 4000/45000, 5000/50000", "SELECT ID FROM SALES", "ORDER BY AMOUNT", "OFFSET 1 ROWS FETCH NEXT 2 ROWS ONLY;"],
+    out: { cols: ["정렬 순서", "ID", "AMOUNT", "결과"], rows: [
+      ["1", "2000", "30000", "OFFSET 1 → 건너뜀"], ["2", "3000", "35000", "**가져옴**"], ["3", "1000", "40000", "**가져옴**"], ["4", "4000", "45000", "FETCH 2행 다 채워서 안 씀"], ["5", "5000", "50000", "안 씀"]] } },
+  { li: [
+    "실행 순서: **ORDER BY로 정렬 → OFFSET n행 버리기 → FETCH m행 가져오기**",
+    "`OFFSET 0 ROWS`나 OFFSET 생략 = 건너뛰지 않음. 그래서 OFFSET 없이 FETCH만 쓰면 맨 앞 m행",
+    "FIRST와 NEXT, ROW와 ROWS는 뜻이 같아요. `FETCH FIRST 2 ROWS` = `FETCH NEXT 2 ROW`",
+    "OFFSET만 쓰고 FETCH를 안 쓰면 n행 건너뛴 **나머지 전부**",
+    "ROWNUM으로 같은 걸 하려면 인라인 뷰 두 겹이 필요해서, 이 문법이 '중간 구간 뽑기'를 훨씬 쉽게 해 줌"] }
 ],
 
 s31: [
