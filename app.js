@@ -528,13 +528,13 @@ function renderTabs() {
   const hide = view === 'quiz' || view === 'mockrun' || view === 'lab';
   $('#tabbar').style.display = hide ? 'none' : 'flex';
   document.body.style.paddingBottom = hide ? 'env(safe-area-inset-bottom)' : '';
-  const root = { kknote: 'wrong', guide: 'home', home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats', cram: 'home', lab: 'concepts' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
+  const root = { kknote: 'wrong', memo: 'wrong', guide: 'home', home: 'home', practice: 'practice', quiz: 'practice', result: 'practice', wrong: 'wrong', concepts: 'concepts', concept: 'concepts', stats: 'stats', cram: 'home', lab: 'concepts' }[view === 'result' && /^concept/.test(QFROM.v) ? 'concept' : view] || 'home';
   $('#tabbar').innerHTML = TABS.map(([k, l, ic]) => `<button class="${root === k ? 'on' : ''}" onclick="go('${k}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}</button>`).join('');
 }
 function render() {
   renderTabs();
   if (!S.cause) S.cause = {};
-  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide, kknote }[view];
+  const f = { home, practice, quiz, result, wrong, concepts, concept, stats, mock, mockrun, mockresult, flash, settings, cram, lab, guide, kknote, memo }[view];
   $('#app').innerHTML = '<div class="wrap">' + f() + '</div>';
   erdFit();
   hlHide(); hlMount($('#app')); inkBarFloat(); calcMount();
@@ -1218,7 +1218,7 @@ function wrong() {
   ids.forEach(id => { const c = QMAP[id].c; (g[c] = g[c] || []).push(id); });
   const keys = Object.keys(g).sort((a, b) => g[b].length - g[a].length);
   return `<h1>오답노트</h1><div class="sub">틀린 문제와 헷갈림 표시한 문제 ${ids.length}개 · 날짜를 두고 3번 맞히면 빠져요</div>
-  <div class="list links" style="margin:8px 0 4px"><div class="it" onclick="go('kknote')"><span>다시 볼 핵심개념</span><span class="sub">${kkIds().length}개 ›</span></div></div>
+  <div class="list links" style="margin:8px 0 4px"><div class="it" onclick="go('kknote')"><span>다시 볼 핵심개념</span><span class="sub">${kkIds().length}개 ›</span></div><div class="it" onclick="go('memo')"><span>약한 개념 암기 노트</span><span class="sub">가리고 외우기 ›</span></div></div>
   ${rvCard(1)}
   ${(() => { const x = resumeInfo('wrong'); if (!x) return ''; const done = x.r.i, tot = x.r.ids.length, ok = Object.values(x.r.res || {}).filter(Boolean).length;
     return `<div class="card"><div class="top"><b>풀던 오답 이어서</b><span class="sub">${esc(x.r.title)}</span></div>
@@ -2134,3 +2134,42 @@ function figSVG(spec, small) {
   document.addEventListener('touchend', end, { capture: true, passive: false });
   document.addEventListener('touchcancel', end, { capture: true, passive: false });
 })();
+
+// ───────── 암기 노트 (약한 개념 용어 가리고 외우기) ─────────
+const MEMO_MAP = {"0-0": "c01", "0-1": "c01", "0-2": "c01", "0-9": "c01", "0-3": "c02", "0-4": "c02", "0-5": "c02", "0-6": "c02", "0-8": "c02", "0-10": "c03", "0-11": "c03", "0-12": "c03", "0-13": "c03", "0-14": "c03", "0-7": "c04", "0-15": "c04", "0-16": "c04", "0-17": "c04", "0-18": "c04", "0-19": "c05", "0-20": "c05", "0-21": "c05", "0-22": "c05", "0-23": "c05", "0-24": "c06", "0-25": "c06", "0-26": "c06", "0-50": "c06", "0-51": "c06", "0-52": "c06", "0-27": "c07", "0-28": "c07", "0-29": "c07", "0-30": "c07", "0-31": "c07", "0-32": "c09", "0-33": "c09", "0-34": "c09", "0-35": "c10", "0-36": "c10", "0-37": "c10", "0-38": "c10", "0-39": "c11", "0-40": "c11", "0-41": "c11", "0-42": "c11", "0-43": "c12", "0-44": "c12", "0-45": "c13", "0-46": "c14", "0-47": "c14", "0-48": "c14", "0-49": "c14", "1-0": "s01", "1-1": "s01", "1-2": "s01", "1-3": "s02", "1-4": "s02", "1-5": "s02", "1-6": "s02", "1-7": "s03", "1-8": "s03", "1-9": "s03", "1-10": "s03", "1-11": "s03", "1-12": "s04", "1-13": "s04", "1-14": "s04", "1-15": "s04", "1-16": "s04", "1-17": "s05", "1-18": "s05", "1-19": "s05", "1-20": "s05", "1-21": "s05", "1-22": "s06", "1-23": "s06", "1-24": "s06", "1-25": "s06", "1-26": "s07", "1-29": "s08", "1-40": "s08", "1-30": "s09", "1-31": "s09", "1-32": "s09", "1-33": "s09", "1-34": "s09", "1-27": "s10", "1-28": "s10", "1-35": "s11", "1-36": "s11", "1-37": "s11", "1-39": "s11", "1-38": "s12", "2-0": "s13", "2-5": "s13", "2-1": "s14", "2-2": "s14", "2-3": "s14", "2-4": "s14", "2-6": "s16", "2-7": "s16", "2-8": "s16", "2-9": "s16", "2-10": "s15", "2-11": "s17", "2-12": "s17", "2-13": "s18", "2-14": "s18", "2-15": "s18", "2-16": "s19", "2-17": "s19", "2-18": "s19", "2-19": "s19", "2-20": "s19", "2-21": "s20", "2-28": "s20", "2-31": "s20", "2-23": "s21", "2-24": "s21", "2-25": "s21", "2-26": "s21", "2-27": "s21", "2-22": "s22", "2-29": "s22", "2-30": "s22", "2-32": "s23", "2-33": "s23", "2-34": "s23", "2-35": "s23", "3-0": "s24", "3-1": "s24", "3-2": "s24", "3-3": "s24", "3-4": "s24", "3-5": "s24", "3-6": "s25", "3-7": "s25", "3-8": "s25", "3-9": "s25", "3-10": "s26", "3-11": "s26", "3-12": "s26", "3-13": "s26", "3-14": "s27", "3-15": "s27", "3-16": "s27", "3-17": "s28", "3-18": "s28", "3-19": "s28", "3-20": "s28", "3-21": "s29", "3-22": "s29", "3-23": "s29", "3-24": "s29", "3-25": "s29", "3-26": "s29", "3-27": "s29", "3-28": "s29", "3-29": "s29", "3-30": "s30", "3-31": "s30", "3-32": "s30", "3-33": "s30", "3-34": "s31", "3-35": "s31", "3-36": "s32", "3-37": "s32", "3-38": "s32", "3-39": "s32", "3-40": "s33", "3-41": "s33", "3-42": "s33", "3-43": "s34", "3-44": "s34", "3-45": "s35", "3-46": "s35", "3-47": "s35", "3-48": "s35", "3-49": "s36", "3-50": "s36"};
+const MEMO_X = [["s16", "OUTER JOIN + ON 조건", "맞는 것만 짝으로 붙임, 기준 테이블 행은 못 지움", "짝 없으면 NULL로 남김. 행을 지우는 건 WHERE뿐. INNER는 ON·WHERE 결과 같음"], ["s24", "GROUPING(A) + GROUPING(B)", "0 일반 행 / 1 소계 / 2 총계", "지워진 컬럼 개수. = 1이면 소계만"], ["s24", "HAVING GROUPING(B) = 1", "B가 지워진 행 = A 소계 + **총계**", "총계도 B가 지워진 행이라 같이 걸림"], ["s24", "GROUPING SETS((A, B))", "(A, B) 조합만 = GROUP BY A, B", "GS(A, B)는 A별 + B별. 괄호 한 겹 차이"], ["s22", "NOT EXISTS (… X.SAL > E.SAL)", "부서별 최고값 (공동 1등 포함)", "`>=`로 바꾸면 자기 자신이 걸려 0건. EXISTS면 전체 − 최고"], ["s26", "RANGE n PRECEDING", "ORDER BY **값** − n 이상", "ROWS n PRECEDING = n**줄** 앞. ID 1, 2, 4, 7처럼 띄엄띄엄이면 결과 갈림"], ["s27", "LAG / LEAD 범위", "ROWS·RANGE 없음, 칸 수만 셈", "RANGE 함정은 집계 윈도우와 FIRST/LAST_VALUE만"], ["s25", "윈도우 함수 + GROUP BY", "한 쿼리에 같이 쓸 수 있음", "GROUP BY 끝난 뒤 SELECT에서 계산. WHERE엔 못 씀"], ["s25", "ROW_NUMBER 동점", "다른 번호, 누가 앞인지 보장 X", "ORDER BY에 기준을 하나 더 붙여야 고정"], ["s28", "PERCENT_RANK vs CUME_DIST", "내 **앞** 사람만 / 나·동점**까지**", "첫 행이 0이면 PERCENT_RANK. 분모: 전체−1 / 전체"], ["s28", "NTILE 동점", "동점이어도 다른 조로 갈림", "나머지는 앞 조부터 1명씩: 7명 NTILE(3) = 3, 2, 2"], ["s28", "ORDER BY 안 쓰는 비율 함수", "RATIO_TO_REPORT", "= SAL / SUM(SAL) OVER ()"], ["s29", "PRIOR 붙은 컬럼", "지금 가진(이미 찾은) 행의 값", "그 값을 반대쪽 컬럼에서 찾음. PRIOR EMPNO면 부하, PRIOR MGR면 상사"], ["s29", "계층형 실행 순서", "START WITH → CONNECT BY → WHERE", "WHERE는 트리 완성 뒤. 조인 조건만 예외"], ["s29", "계층형 출력 순서", "깊이 우선 (한 가지 끝까지)", "층별 아님. SIBLINGS BY … DESC면 형제만 역순"], ["s30", "OFFSET n ROWS", "정렬 후 앞 n행 건너뛰기", "OFFSET 1 FETCH NEXT 2 = 2~3번째 행"], ["s32", "REGEXP_REPLACE \\1 \\2", "괄호 그룹을 번호로 불러옴", "괄호 밖 글자(쉼표 등)는 사라짐. 결과 = 바꿀 문자열 모양 그대로"], ["s32", "+ / * / ?", "1회 이상 / 0회 이상 / 0~1회", "Ab+에 Ab 맞음, A 안 맞음. +는 바로 앞 한 글자에만"], ["s23", "집합 연산자와 NULL", "NULL끼리 같은 값으로 봄", "WHERE의 = NULL(항상 거짓)과 다름"], ["s18", "NOT IN의 NULL 위치", "A쪽 NULL = 그 행만 빠짐 / B쪽 NULL = 전부 0건", "LEFT JOIN·NOT EXISTS·MINUS는 A쪽 NULL 행이 남음"], ["s12", "문자 정렬 순서", "숫자 < 대문자 < 소문자 < 한글", "앞 글자부터 비교: '10' < '9', 'B' > 'AZ', 가 < 나"]];
+let MM = { all: false, hk: false, peek: false };
+function memoItems() {
+  const out = [];
+  MEMO_X.forEach((x, i) => out.push({ key: 'x' + i, c: x[0], k: x[1], v: x[2], n: x[3] || '', me: 1 }));
+  FLASH.forEach((s, i) => s.cards.forEach((cd, j) => { const c = MEMO_MAP[i + '-' + j]; if (c) out.push({ key: i + '-' + j, c, k: cd[0], v: cd[1], n: cd[2] || '' }); }));
+  return out;
+}
+function mmTog(el) { el.classList.toggle('show'); }
+function mmKnow(el, key) {
+  if (S.fl[key]) delete S.fl[key]; else S.fl[key] = 1; save();
+  const row = el.closest('.mm-row'); row.classList.toggle('kn', !!S.fl[key]); el.classList.toggle('on', !!S.fl[key]);
+  const box = el.closest('.mm-sec'), cnt = box && box.querySelector('.mm-cnt');
+  if (cnt) cnt.textContent = `외움 ${box.querySelectorAll('.mm-row.kn').length}/${box.querySelectorAll('.mm-row').length}`;
+}
+function memo() {
+  const items = memoItems(), wc = {}, by = {};
+  wrongIds().forEach(id => { const c = QMAP[id].c; wc[c] = (wc[c] || 0) + 1; });
+  items.forEach(it => (by[it.c] = by[it.c] || []).push(it));
+  let order = CONCEPTS.map(c => c.id).filter(c => by[c]);
+  if (!MM.all) order = order.filter(c => wc[c]).sort((x, y) => wc[y] - wc[x]);
+  const tot = order.reduce((s, c) => s + by[c].length, 0), kn = order.reduce((s, c) => s + by[c].filter(it => S.fl[it.key]).length, 0);
+  return `<button class="icon-btn" onclick="go('wrong')">← 오답노트</button><h1>암기 노트</h1>
+  <div class="sub">${MM.all ? '전체 개념' : '지금 틀린 문제가 많은 개념부터'} · 오른쪽 칸을 누르면 뜻이 보여요 · ✓ = 외움 · ★ = 직접 헷갈렸던 것</div>
+  <div class="seg" style="margin:12px 0 8px"><button class="${MM.all ? '' : 'on'}" onclick="MM.all=false;render()">약한 개념순</button><button class="${MM.all ? 'on' : ''}" onclick="MM.all=true;render()">전체 개념</button></div>
+  <div class="row mm-tools"><button class="chip ${MM.peek ? 'c' : ''}" onclick="MM.peek=!MM.peek;render()">${MM.peek ? '다 가리기' : '다 보기'}</button>
+    <button class="chip ${MM.hk ? 'c' : ''}" onclick="MM.hk=!MM.hk;render()">${MM.hk ? '외운 것도 보기' : '외운 것 숨기기'}</button>
+    <span class="sub mm-tot">외움 ${kn}/${tot}</span></div>
+  ${order.length ? '' : `<div class="card sub" style="margin-top:12px">지금 틀린 문제가 없어요. '전체 개념'에서 훑어보세요.</div>`}
+  <div class="${MM.hk ? 'mm-hidekn' : ''}">${order.map(c => { const list = [...by[c]].sort((p, q) => (q.me || 0) - (p.me || 0)), k = list.filter(it => S.fl[it.key]).length;
+    return `<section class="mm-sec"><div class="mm-h"><b onclick="go('concept',{id:'${c}'})">${esc(CMAP[c].name)}</b>${wc[c] ? `<span class="pill">오답 ${wc[c]}</span>` : ''}<span class="sub mm-cnt">외움 ${k}/${list.length}</span></div>
+    <div class="mm-note">${list.map(it => `<div class="mm-row ${S.fl[it.key] ? 'kn' : ''}">
+      <div class="mm-k">${it.me ? '<span class="mm-me">★</span>' : ''}${md(it.k)}</div>
+      <div class="mm-v ${MM.peek ? 'show' : ''}" onclick="mmTog(this)"><div>${md(it.v)}</div>${it.n ? `<small>${md(it.n)}</small>` : ''}</div>
+      <button class="mm-ck ${S.fl[it.key] ? 'on' : ''}" onclick="mmKnow(this,'${it.key}')" aria-label="외움 표시">✓</button></div>`).join('')}</div></section>`; }).join('')}</div>`;
+}

@@ -536,6 +536,23 @@ table.qt-tb tr:first-child th:first-child{border-top-left-radius:6px}table.qt-tb
 #calc .ck button{height:calc(42px * var(--cz));font-size:calc(17px * var(--cz));border-radius:calc(10px * var(--cz))}
 #calc .cgrip{position:absolute;right:3px;bottom:3px;width:24px;height:24px;cursor:nwse-resize;touch-action:none;z-index:2;
   background:linear-gradient(135deg,transparent 0 52%,var(--sub) 52% 60%,transparent 60% 70%,var(--sub) 70% 78%,transparent 78%);opacity:.8}
+
+.mm-tools{gap:8px;align-items:center;margin-bottom:6px}.mm-tot{margin-left:auto}
+.mm-sec{margin:18px 0 0}.mm-h{display:flex;align-items:center;gap:8px;margin:0 2px 8px}.mm-h b{font-size:16px;cursor:pointer;min-width:0}.mm-h .pill,.mm-cnt{white-space:nowrap;flex:none}.mm-cnt{margin-left:auto;font-size:12.5px}
+.mm-note{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.mm-row{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr) 40px;border-bottom:1px solid var(--line);min-height:48px}
+.mm-row:last-child{border-bottom:0}
+.mm-k{padding:11px 12px 11px 14px;font-weight:600;font-size:14.5px;line-height:1.45;border-right:2px solid color-mix(in srgb,var(--bad) 40%,transparent);word-break:keep-all;overflow-wrap:break-word}
+.mm-me{color:var(--warn);margin-right:4px;font-size:12px}
+.mm-v{padding:11px 12px;font-size:14.5px;line-height:1.45;cursor:pointer;position:relative;word-break:keep-all;overflow-wrap:anywhere;-webkit-user-select:none;user-select:none}
+.mm-v small{display:block;color:var(--sub);font-size:12.5px;margin-top:4px;line-height:1.45}
+.mm-v:not(.show)>*{visibility:hidden}
+.mm-v:not(.show)::after{content:'';position:absolute;inset:7px 8px;border-radius:9px;background:var(--soft);border:1px solid var(--line)}
+.mm-ck{border:0;background:none;color:var(--off);font-size:17px;font-weight:700;cursor:pointer;padding:0}
+.mm-ck.on{color:var(--ok)}
+.mm-row.kn .mm-k{color:var(--sub);font-weight:500}
+.mm-hidekn .mm-row.kn{display:none}
+@media(max-width:600px){.mm-row{grid-template-columns:minmax(0,46%) minmax(0,1fr) 34px}.mm-k,.mm-v{font-size:14px;padding:10px}}
 </style>
 </head>
 <body>
