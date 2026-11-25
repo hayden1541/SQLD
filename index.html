@@ -310,6 +310,9 @@ h2.h0{margin-top:18px}
 .dots{position:relative;display:flex;justify-content:space-between}
 .dots i{display:block;width:15px;height:15px;border-radius:50%;background:var(--bg);border:3px solid var(--off);box-sizing:border-box}
 .dots i.v{border-color:var(--lc)}.dots i.f{background:var(--lc);border-color:var(--lc)}.dots i.w{border-color:var(--bad)}
+.chead{position:sticky;top:0;z-index:10;background:var(--bg);margin:calc(-12px - env(safe-area-inset-top)) -16px 0;padding:calc(12px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+.chead h1{margin-top:8px}
+@media (min-width: 700px){ .chead{margin:calc(-20px - env(safe-area-inset-top)) -32px 0;padding:calc(20px + env(safe-area-inset-top)) 32px 12px} }
 .legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin:6px 0 0}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;border:2.5px solid var(--off);box-sizing:border-box;margin-right:5px;vertical-align:-1px}
 .legend i.f{background:var(--ln2);border-color:var(--ln2)}.legend i.v{border-color:var(--ln2)}.legend i.w{border-color:var(--bad)}

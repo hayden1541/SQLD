@@ -674,9 +674,9 @@ function concepts() {
     return `<section class="vl ln${s}"><div class="lname"><b><span class="lchip">${s}</span>${s}과목 ${SUBJ[s]}</b><span class="sub">${CONCEPTS.filter(c => c.s === s).length}역 중 ${pass}역 통과</span></div>
     ${units.map(u => `<div class="vu">${esc(u)}</div>${CONCEPTS.filter(c => c.s === s && c.unit === u).map(c => { const st = conceptStat(c.id);
       return `<div class="stn ${cState(c.id)}" onclick="go('concept',{id:'${c.id}'})"><span class="nm">${esc(c.name)}${S.cdone[c.id] ? '<span class="ck">학습 완료</span>' : ''}</span><span class="sub">${st.n ? pct(st.acc) + ' · ' : ''}${st.total}문항${agoTag(c.id, st)}</span></div>`; }).join('')}`).join('')}</section>`; };
-  return `<h1>개념</h1><div class="sub">${CONCEPTS.length}개 중 ${done}개 학습 완료 · 역을 누르면 개념 정리와 문제가 나와요</div>
+  return `<div class="chead"><h1>개념</h1><div class="sub">${CONCEPTS.length}개 중 ${done}개 학습 완료 · 역을 누르면 개념 정리와 문제가 나와요</div>
   <div class="list links" style="margin:8px 0 6px"><div class="it" onclick="go('cram')"><span>시험 직전 정리</span><span class="sub">함정과 핵심만 ›</span></div><div class="it" onclick="openLab()"><span>SQL 실습장</span><span class="sub">EMP · DEPT ›</span></div></div>
-  ${legend()}
+  ${legend()}</div>
   <div class="ugrid">${col(1)}${col(2)}</div>`;
 }
 
